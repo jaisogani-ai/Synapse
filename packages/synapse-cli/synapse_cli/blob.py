@@ -22,7 +22,6 @@ There is no new protocol here — this is pure A2A + HTTP/1.1.
 from __future__ import annotations
 
 import hashlib
-import json
 import os
 import shutil
 import urllib.error

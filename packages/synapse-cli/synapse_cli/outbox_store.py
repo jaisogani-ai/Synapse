@@ -14,7 +14,6 @@ in the inbox on the receiving side and the audit log on the sending side.
 
 from __future__ import annotations
 
-import json
 import sqlite3
 import time
 from dataclasses import dataclass

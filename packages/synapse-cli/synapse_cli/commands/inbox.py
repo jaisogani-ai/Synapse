@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any
 
 from synapse.security.capabilities import DEFAULT_A2A_CAPABILITIES
 
@@ -14,7 +13,7 @@ from ..a2a import JsonRpcRequest, METHOD_TASKS_RESULT
 from ..a2a_signer import A2ASigner
 from ..audit import AuditEntry, AuditLog, now_iso
 from ..identity_resolver import IdentityResolver
-from ..inbox_store import InboxRow, InboxStore
+from ..inbox_store import InboxStore
 from ..transport import TransportUnreachable, post_jsonrpc
 from ..trust import DEFAULT_TRUST_THRESHOLD
 

@@ -60,10 +60,21 @@ Terminal 2 (Laptop):
     "task accepted; surfaced to local tool for execution"
 ```
 
-## What's NOT in v1 (per spec)
+## Recording instructions
 
-- ❌ Offline queueing / retry-on-reconnect (fails fast)
-- ❌ Auto-execution of received tasks (surface only)
-- ❌ Custom encryption (uses A2A transport security)
-- ❌ Multi-hop relay
-- ❌ Persistent presence dashboard
+```bash
+# Multi-terminal demos are easiest to record as a screencast.
+# Two-pane tmux + asciinema also works.
+asciinema rec --command "tmux new -d 'python3.11 examples/cross-device-task-delegation/run_vps.py'; python3.11 examples/cross-device-task-delegation/run_laptop.py" /tmp/demo.cast
+agg /tmp/demo.cast assets/demo-review.gif
+```
+
+Place the recording at `assets/demo-review.gif`. The root README references it.
+
+## What's NOT in this demo (and where to find it)
+
+- **Offline queueing.** The outbox does this — see [`packages/synapse-cli/synapse_cli/outbox_store.py`](../../packages/synapse-cli/synapse_cli/outbox_store.py) and `/tmp/synapse_outbox_e2e.py`.
+- **Auto-execution.** Synapse only surfaces tasks. Execution belongs to the operator + their tool of choice.
+- **Custom encryption.** A2A transport security only. Run under HTTPS / Tailscale / WireGuard for confidentiality.
+- **Multi-hop relay.** Out of scope by design — see [`KNOWN_LIMITATIONS.md`](../../KNOWN_LIMITATIONS.md).
+- **Persistent presence dashboard.** Use `synapse presence list` instead.

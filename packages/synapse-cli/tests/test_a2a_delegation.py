@@ -17,7 +17,7 @@ import pytest
 from synapse.security.zero_trust import ZeroTrustNetwork
 from synapse_cli.a2a_signer import A2ASigner
 from synapse_cli.audit import AuditLog
-from synapse_cli.commands.inbox import accept_task, list_inbox, reject_task
+from synapse_cli.commands.inbox import accept_task, list_inbox
 from synapse_cli.commands.send_task import SendOptions, send_task
 from synapse_cli.identity_resolver import IdentityResolver
 from synapse_cli.inbox_store import InboxStore

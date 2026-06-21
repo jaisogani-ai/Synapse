@@ -14,7 +14,6 @@ can read outbox state while the worker is running.
 from __future__ import annotations
 
 import threading
-import time
 from dataclasses import dataclass, field
 from typing import Callable
 

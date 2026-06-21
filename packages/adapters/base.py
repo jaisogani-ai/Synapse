@@ -9,13 +9,10 @@ existing ``synapse.security`` SDK; subclasses only declare their ``tool_type``.
 
 from __future__ import annotations
 
-import json
 import logging
 import time
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass
 
-from synapse.security.capabilities import CapabilitySet
 from synapse.security.zero_trust import (
     AgentIdentity,
     ZeroTrustNetwork,

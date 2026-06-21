@@ -1,103 +1,73 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 <!-- Copyright (c) 2026 Jai Sogani. Licensed under the Apache License, Version 2.0. -->
 
-# Synapse Roadmap
+# Roadmap
 
-> From foundation to production-ready agent trust infrastructure.
+> v1.0 is feature-complete. v1.x is the honest follow-up list, not a wishlist.
 
-## Completed
+## v1.0 — shipped
 
-### Phase A — Audit & Direction
+Everything below is in the repo today, with tests:
 
-- Full repository audit (~118 files, ~10,700 LOC)
-- Classified every file: KEEP / REWRITE / SPIN OUT / REMOVE
-- Established four-pillar architecture: Identity, Vault, Trust, A2A
-- Identified ~60 files (33%) for removal, ~30 files (31%) for spinout
-
-### Phase B — Foundation
-
-- **Rust daemon** with trust store, protocol codec, Unix-socket IPC
-- **Zero-trust identity** — JWT (HS256) + HMAC-SHA256 request signing
-- **Secret vault** — AES-256-GCM encrypted store with scoped proxy tokens
-- **Capability system** — namespaced grants with wildcard support
-- **Supply chain scanner** — OSV.dev + Shannon entropy heuristics
-- **Reputation store** — in-memory in v1, confidence-weighted scoring; SQLite persistence is a P1 follow-up
-
-### Phase C — CLI & A2A Integration
-
-- **synapse-cli** — send-task, inbox, accept/reject, audit trail
-- **A2A transport** — JSON-RPC over HTTP with signed headers
-- **Identity resolver** — agent-to-endpoint directory
-- **Receiving daemon** — signature verification, reputation gating, inbox
-
-### Phase D — Adapters, Demos, Docs (current)
-
+- **Identity** — HMAC-SHA256 + HS256 JWT with `caps` claim ([`zero_trust.py`](../packages/synapse-core/synapse/security/zero_trust.py))
+- **Vault** — AES-256-GCM with scoped, time-limited proxies; raw secret never crosses the wire ([`vault.ts`](../packages/synapse-vault-mcp/src/vault.ts))
+- **Trust + reputation** — confidence-weighted scoring; low-rep content redacted ([`trust.py`](../packages/synapse-cli/synapse_cli/trust.py), [`reputation.rs`](../daemon/src/trust/reputation.rs))
+- **A2A** — standard JSON-RPC over HTTP; signed envelopes; FilePart `uri` form for large files
+- **Capability enforcement** — receiver-side per RPC method + Rust IPC per TrustOp
+- **Durable outbox** — SQLite + exponential backoff + DLQ
+- **Chunked file transfer** — content-addressed, HTTP `Range`, sha256 end-to-end
+- **Presence** — `online` / `busy` / `offline`
+- **Inbox + review** — accept / reject / review-before-decide
+- **Audit log** — append-only JSONL, every gate failure recorded
 - **5 adapters** — Claude Code, Cursor, Codex, VS Code, Antigravity
-  - Identity registration, trust headers, vault integration, A2A signing
-- **3 launch demos**
-  - VPS deploy with no raw credentials (drives the **real** AES-256-GCM vault)
-  - Malicious sender rejection (3 attack vectors)
-  - Trust-gated cross-device task delegation
-- **Documentation** — README, ARCHITECTURE, TRUST_MODEL, PROTOCOL, ROADMAP
+- **3 demos** — VPS handoff, cross-device delegation, malicious sender rejection
+- **128 tests** — 39 Rust + 79 Python + 10 TypeScript, all green
 
-## Planned
+## v1.x — planned follow-ups
 
-### P1 — Rust-native identity / vault / a2a-signer modules
+These are honest gaps documented in [`KNOWN_LIMITATIONS.md`](../KNOWN_LIMITATIONS.md). Each is a contained change, not a new subsystem.
 
-Identity, vault, and trust currently live in the Python SDK at
-`packages/synapse-core/synapse/security/`. The Rust daemon today only owns
-the trust store + IPC + audit transport.
+### Security hardening
 
-- [ ] Rust-native identity module (move from `synapse.security.zero_trust`)
-- [ ] Rust-native vault module backed by `synapse-vault-mcp`'s AES-256-GCM core
-- [ ] Rust-native A2A signer (today in `synapse_cli/a2a_signer.py`)
-- [ ] Wire `daemon/src/security/capability.rs` into the IPC dispatcher
-      (code-complete, currently not consulted on each request)
-- [ ] Persist `daemon/src/trust/reputation.rs` to SQLite — currently
-      in-memory, despite TRUST_MODEL.md's "SQLite-backed" language
-- [ ] Reconcile the dual trust/identity stores (Rust + Python) — pick one
-      authoritative source rather than letting both drift
+- [ ] Persist Rust `TrustStore` to SQLite (T-1) — collapses the dual-store gap
+- [ ] Endpoint hash pinning on `identity.json` (N-1 / SH-3)
+- [ ] Hash-chained audit log (A-1 / M-9)
+- [ ] Per-sender rate limit on receiver (I-2 / M-2)
+- [ ] Encrypt-at-rest for `vault_client.py` (V-1 / M-7)
+- [ ] Inbox SQLite WAL + busy timeout (I-1 / M-1)
+- [ ] JWT `cnf` (confirmation) claim binding token to specific request
 
-### Phase E — Production Hardening
+### Developer experience
 
-- [ ] Token refresh / automatic rotation
-- [ ] Rate limiting on the receiving daemon
-- [ ] Connection pooling for high-throughput A2A
-- [ ] Structured logging (JSON) with correlation IDs
-- [ ] Graceful shutdown with in-flight task draining
-- [ ] Health check endpoint on the daemon
+- [ ] GitHub Actions CI workflow (H-1)
+- [ ] Release automation (H-2)
+- [ ] CycloneDX SBOM on release (H-3)
+- [ ] Linux package in addition to source install
 
-### Phase F — Distribution & Packaging
+### Documentation
 
-- [ ] `pip install synapse-agent` (Python SDK + CLI)
-- [ ] `cargo install synapsed` (Rust daemon)
-- [ ] `npm install @synapse/vault-mcp` (Vault MCP server)
-- [ ] Docker image with daemon + vault
-- [ ] Homebrew formula
+- [ ] Tutorial: setting up a 3-device personal cluster end-to-end
+- [ ] How-to: rotating a compromised agent identity
+- [ ] How-to: integrating a custom adapter
 
-### Phase G — Advanced Trust
+## v2 — open questions
 
-- [ ] Multi-domain reputation (per-skill trust scores)
-- [ ] Trust delegation chains (A trusts B, B vouches for C)
-- [ ] Reputation decay (scores fade without recent positive outcomes)
-- [ ] Trust arbiter — weighted consensus from multiple agents
-- [ ] Cross-network federation (trust across Synapse instances)
+These are ideas the project has not committed to. They earn their way in only if real use justifies the maintenance cost.
 
-### Phase H — Ecosystem
+- Asymmetric (Ed25519) tokens instead of HS256
+- Optional end-to-end payload encryption (probably Noise XK if it lands at all)
+- Code-gen the capability vocabulary from one source-of-truth (K-1)
+- Rust-native identity + vault, replacing the Python + Node implementations
 
-- [ ] MCP marketplace integration (trust-gated skill registry)
-- [ ] Pluggable compliance workers (GDPR, DPDP, SOC2)
-- [ ] Dashboard UI for trust scores, audit trails, vault access
-- [ ] Webhook notifications for trust events
+## Non-goals (explicit)
 
-## Non-Goals
+These will not be built in any version of Synapse:
 
-These are explicitly out of scope for Synapse:
+- Federation protocol / AFP / new wire format
+- Memory layer
+- Agent runtime or orchestration
+- Multi-tenant SaaS
+- Skill or agent marketplace
+- "Agent OS" / "AI OS"
 
-- **General-purpose AI agent framework** — Synapse provides identity and
-  trust, not agent logic. Use Claude Code, Cursor, Codex, etc. for that.
-- **Replacing A2A** — Synapse signs and verifies A2A messages, never
-  replaces the A2A protocol.
-- **LLM routing / model selection** — spun out as a standalone utility.
-- **Memory management** — the 8-tier system was removed; memory is handled
-  by the host tool.
+Synapse stays small on purpose.

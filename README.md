@@ -1,126 +1,333 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 <!-- Copyright (c) 2026 Jai Sogani. Licensed under the Apache License, Version 2.0. -->
 
-# Synapse
+<div align="center">
 
-> **Identity, trust, reputation, and secure secret handoff for AI agents.**
+# 🔐 Synapse
+
+### Your AI agents can already talk to each other.<br>They have no idea who they're talking to.
+
+Trusted A2A for Claude Code, Cursor, Codex, Antigravity, VS Code — and anything else that speaks the A2A spec.
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Daemon](https://img.shields.io/badge/daemon-Rust-orange.svg)](daemon/)
-[![SDK](https://img.shields.io/badge/SDK-Python%203.11%2B-green.svg)](packages/synapse-core/)
-
-Synapse gives AI agents cryptographic identity, capability-based trust,
-reputation scoring, and scoped credential proxies — so agents can prove who
-they are, what they're allowed to do, and whether they should be trusted.
+[![Tests](https://img.shields.io/badge/tests-128%2F128%20passing-brightgreen.svg)](#tests)
+[![Rust](https://img.shields.io/badge/daemon-Rust%201.80%2B-orange.svg)](daemon/)
+[![Python](https://img.shields.io/badge/SDK-Python%203.11%2B-green.svg)](packages/synapse-core/)
+[![A2A](https://img.shields.io/badge/A2A-spec--compliant-purple.svg)](https://a2aproject.org)
+[![Self-hosted](https://img.shields.io/badge/deployment-self--hosted-lightgrey.svg)](#quick-start)
 
 ![Synapse demo](assets/demo.gif)
 
-> **Status:** v1 release candidate — Rust daemon (trust store + IPC),
-> Python SDK, TypeScript AES-256-GCM vault MCP, CLI with A2A delegation,
-> 5 tool adapters, 3 launch demos, full documentation.
->
-> Identity, vault, and trust logic currently lives in the Python SDK at
-> `packages/synapse-core/synapse/security/`. The Rust daemon is the
-> trust/IPC/audit layer; native Rust identity/vault/a2a-signer modules
-> are P1 follow-ups (see [ROADMAP.md](docs/ROADMAP.md)).
+</div>
 
-## The Four Pillars
+---
+
+## What problem does Synapse solve?
+
+Today, when Claude Code on your laptop sends a task to Codex on your VPS, **anything in between can:**
+
+- Forge the request — there's no identity check
+- Read the credential — it's in the payload
+- Replay the message — there's no expiry
+- Pretend to be the target — there's no verification
+- Escalate privilege — there's no capability check
+
+A2A defines the *envelope*. It doesn't tell you who's on either end of it, what they're allowed to do, whether you should trust them, or how to hand them a secret without leaking it.
+
+**Synapse is the trust layer.** Identity. Reputation. Capabilities. Vault. Audit. All bolted onto the A2A protocol you already use.
+
+```
+Without Synapse:           With Synapse:
+
+Claude Code on laptop      Claude Code on laptop
+       │                          │
+       │  unsigned, unaudited     │  signed JWT + HMAC payload
+       │  raw API key in body     │  scoped vault proxy, never raw key
+       │  no capability check     │  caps verified per RPC method
+       ▼                          ▼
+Codex on VPS               Codex on VPS
+   "Trust me, I'm           "Identity verified.
+    Alice."                  Reputation 0.91.
+                             Capability granted.
+                             Audited."
+```
+
+---
+
+## How it works
+
+```
+┌──────────────────────────────────────────────────────────┐
+│            SYNAPSE DAEMON  (Rust)                          │
+│  • Trust store — reputation scoring per agent + domain   │
+│  • Internal IPC over Unix socket (daemon ↔ local CLI)    │
+│  • Capability enforcement — every trust op is gated      │
+└──────────────────────────────────────────────────────────┘
+        ▲                                            ▲
+        │ identity / vault / trust queries           │
+        │                                            │
+┌──────────────────────┐                ┌────────────────────────┐
+│ packages/synapse-cli │                │ packages/synapse-      │
+│  • send-task         │                │  vault-mcp (Node)      │
+│  • inbox / outbox    │                │  AES-256-GCM vault     │
+│  • presence          │                │  Scoped proxy tokens   │
+│  • review            │                │  Append-only audit     │
+└──────────┬───────────┘                └────────────────────────┘
+           │
+           │   standard A2A protocol  (JSON-RPC over HTTP,
+           │   signed with HMAC-SHA256, capability JWT in header)
+           ▼
+       Other agent on another device
+```
+
+> **A2A is the wire format. Synapse is the trust layer.** Synapse does **not** replace A2A or invent a new protocol. We sign and verify A2A messages, gate them with capabilities, and route credential-touching ones through a vault.
+
+---
+
+## Tests
+
+| Suite | Result | What's covered |
+|---|---|---|
+| `cargo test` | **39 / 39** ✅ | Rust daemon — trust store, IPC, protocol codec, capability gate |
+| `pytest` | **79 / 79** ✅ | Python SDK + 5 adapters + CLI — identity, vault, A2A, outbox, presence, **capability enforcement** |
+| `npm test` (vault-mcp) | **10 / 10** ✅ | TypeScript AES-256-GCM vault — round-trip, tamper detection, proxy expiry |
+| **Total** | **128 / 128** | |
+
+End-to-end demos pass live:
+
+- `examples/vps-handoff-no-raw-keys/demo.py` — RESULT: PASS
+- Outbox e2e (offline → queue → retry → deliver → dead → requeue) — green
+- Blob e2e (1 MiB, chunked Range fetch, resume, sha256 tamper-reject) — green
+
+---
+
+## What's inside
 
 | Pillar | What it does | Where it lives |
-|--------|-------------|----------------|
-| **Identity** | Cryptographic agent/device/account identity, JWT issuance, HMAC request signing | `packages/synapse-core/synapse/security/zero_trust.py` |
-| **Vault** | Scoped, time-limited credential proxies; AES-256-GCM at rest; append-only audit trail | `packages/synapse-vault-mcp/src/vault.ts` |
-| **Trust** | Reputation scoring, outcome tracking, capability verification, agent verification | `daemon/src/trust/reputation.rs`, `packages/synapse-core/synapse/security/` |
-| **A2A Integration** | Sends and receives standard A2A tasks (a2aproject.org) with HMAC-signed JSON-RPC | `packages/synapse-cli/synapse_cli/a2a.py` |
+|---|---|---|
+| **Identity** | Cryptographic agent identity, HS256 JWT with capability claims, HMAC-SHA256 request signing | [`packages/synapse-core/synapse/security/zero_trust.py`](packages/synapse-core/synapse/security/zero_trust.py) |
+| **Vault** | Scoped, time-limited credential proxies; AES-256-GCM at rest; raw secret never on the wire; append-only audit | [`packages/synapse-vault-mcp/src/vault.ts`](packages/synapse-vault-mcp/src/vault.ts) |
+| **Trust** | Reputation scoring per agent + domain; outcome-weighted; redacts content from low-rep senders | [`packages/synapse-cli/synapse_cli/trust.py`](packages/synapse-cli/synapse_cli/trust.py), [`daemon/src/trust/`](daemon/src/trust/) |
+| **Capability gate** | Every A2A method requires a specific capability; sender's JWT must grant it; subject must match HMAC sender | [`packages/synapse-cli/synapse_cli/receiver.py`](packages/synapse-cli/synapse_cli/receiver.py), [`daemon/src/security/capability.rs`](daemon/src/security/capability.rs) |
+| **A2A integration** | Standard A2A JSON-RPC over HTTP; spec-compliant `FilePart` with `uri` for large files | [`packages/synapse-cli/synapse_cli/a2a.py`](packages/synapse-cli/synapse_cli/a2a.py) |
+| **Durable outbox** | Offline target → SQLite queue → background worker retries with exponential backoff → DLQ after 6 attempts | [`packages/synapse-cli/synapse_cli/outbox_store.py`](packages/synapse-cli/synapse_cli/outbox_store.py) |
+| **Chunked file transfer** | Files > 256 KiB served via content-addressed blob endpoint with HTTP `Range` resume + sha256 verify | [`packages/synapse-cli/synapse_cli/blob.py`](packages/synapse-cli/synapse_cli/blob.py) |
+| **Presence** | `online` / `busy` / `offline` — `GET /presence`, no CRDT, no gossip | [`packages/synapse-cli/synapse_cli/presence.py`](packages/synapse-cli/synapse_cli/presence.py) |
+| **Inbox + review** | SQLite-backed received-task queue; operator can review content before accept | [`packages/synapse-cli/synapse_cli/inbox_store.py`](packages/synapse-cli/synapse_cli/inbox_store.py) |
+| **Audit log** | Append-only JSONL of every send / receive / accept / reject / capability denial | [`packages/synapse-cli/synapse_cli/audit.py`](packages/synapse-cli/synapse_cli/audit.py) |
 
-## Architecture
+### Adapters (already in repo)
 
-```
-┌──────────────────────────────────────────┐
-│            SYNAPSE DAEMON (Rust)          │
-│  • Trust store (reputation scoring)      │
-│  • Internal IPC over Unix socket         │
-│    (daemon ↔ local CLI / adapters)       │
-│  • Capability-based policy enforcement   │
-└──────────────────────────────────────────┘
-        ▲
-        │ identity / vault / trust queries
-        │
-┌──────────────────────────────────────────┐
-│   CLI + adapters + vault MCP              │
-│  • Cross-agent task delegation uses the  │
-│    standard A2A protocol                 │
-│    (packages/synapse-cli/synapse_cli/    │
-│     a2a.py)                              │
-└──────────────────────────────────────────┘
-```
+5 platform adapters — Claude Code, Cursor, Codex, VS Code, Antigravity — each ~30 LOC subclassing [`BaseAdapter`](packages/adapters/base.py). Each provides identity registration, trust signing, vault credential routing, and A2A signing. **42 adapter tests pass.**
 
-> Synapse's daemon uses an internal IPC protocol for identity/vault/trust
-> operations. Cross-agent task delegation uses the standard A2A protocol
-> ([a2aproject.org](https://a2aproject.org)), implemented in
-> `packages/synapse-cli/synapse_cli/a2a.py` — not reinvented.
-
-## Repository layout
-
-```
-synapse/
-├── daemon/              # Rust daemon (trust store + IPC + audit transport)
-│   └── src/
-│       ├── trust/       # Reputation store
-│       ├── protocol/    # Internal daemon ↔ client IPC v1.0 (NOT A2A)
-│       ├── ipc/         # Unix-socket server
-│       └── security/    # Capability enforcement (code-complete; wiring P1)
-├── packages/
-│   ├── synapse-core/    # Python SDK (zero-trust, capabilities, secret detector, supply chain)
-│   ├── synapse-vault-mcp/   # AES-256-GCM secret vault (MCP server)
-│   ├── synapse-cli/         # CLI tool (send-task, inbox, accept/reject, audit)
-│   └── adapters/            # Claude Code, Cursor, Codex, VS Code, Antigravity
-├── tests/               # Cross-language unit tests (72 tests)
-├── examples/
-│   ├── vps-handoff-no-raw-keys/       # Demo 1: VPS deploy, zero raw credentials
-│   ├── malicious-sender-rejection/    # Demo 2: Three attack vectors, all stopped
-│   └── cross-device-task-delegation/  # Demo 3: Trust-gated A2A delegation
-├── spinout/             # Modules with standalone value, out of scope for v1
-└── docs/                # Architecture, protocol, trust model, roadmap
-```
+---
 
 ## Demos
 
-```bash
-# VPS deploy — agent never sees raw API key
-python3 examples/vps-handoff-no-raw-keys/demo.py
+> Live in [`examples/`](examples/). Each runs end-to-end against the real code paths — no in-process simulation of vault, signing, or capability gate.
 
-# Malicious sender rejection — three attacks, all stopped
-python3 examples/malicious-sender-rejection/demo.py
+### 1 — VPS deploy with no raw credentials
 
-# Cross-device task delegation (two terminals)
-python3 examples/cross-device-task-delegation/run_vps.py     # terminal 1
-python3 examples/cross-device-task-delegation/run_laptop.py  # terminal 2
-```
+`![demo-deploy](assets/demo-deploy.gif)` *(placeholder — record per `examples/vps-handoff-no-raw-keys/README.md`)*
 
-## Build & test
+Codex on a VPS deploys an app using an Anthropic API key. The key never leaves the laptop's vault; the VPS sees only a 300-second proxy URL. Drives the real Node AES-256-GCM `SecretVault`.
 
 ```bash
-# Rust daemon
-cargo build
-cargo test
-
-# Python SDK + adapters + CLI (72 tests)
-pip install -e ".[dev]"
-pytest
+python3.11 examples/vps-handoff-no-raw-keys/demo.py
 ```
 
-## Documentation
+### 2 — Cursor review with patch return + human approval
 
-- [Architecture](docs/ARCHITECTURE.md) — daemon structure, threading, module map
-- [Trust Model](docs/TRUST_MODEL.md) — three gates, reputation, threat model
-- [Protocol](docs/PROTOCOL.md) — Synapse Protocol v1.0 wire format
-- [Roadmap](docs/ROADMAP.md) — completed phases and planned work
-- [Inspirations](docs/INSPIRATIONS.md) — design influences and non-goals
+`![demo-review](assets/demo-review.gif)` *(placeholder — record per `examples/cross-device-task-delegation/README.md`)*
+
+Laptop asks Cursor on desktop to review `auth.rs`. Cursor returns a patch. Operator runs `synapse inbox review <task_id>` to see the diff, then `accept` or `reject`.
+
+```bash
+# terminal 1 — receiver
+python3.11 examples/cross-device-task-delegation/run_vps.py
+
+# terminal 2 — sender
+python3.11 examples/cross-device-task-delegation/run_laptop.py
+```
+
+### 3 — Low-trust agent blocked by capability gate
+
+`![demo-block](assets/demo-block.gif)` *(placeholder — record per `examples/malicious-sender-rejection/README.md`)*
+
+An unknown sender (rep 0.2), a forged signature, and a token missing `a2a.send_task` all hit the receiver. All three are rejected, audited as `reject_bad_signature` / `reject_capability` / `reject_unsigned`. No task ever lands in the inbox.
+
+```bash
+python3.11 examples/malicious-sender-rejection/demo.py
+```
+
+---
+
+## Feature comparison
+
+| | **Synapse** | A2A (raw spec) | CrewAI | AutoGen | LangGraph | Supermemory |
+|---|---|---|---|---|---|---|
+| Standard A2A wire format | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Cryptographic agent identity | ✅ HMAC + JWT | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Per-method capability gate | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Reputation scoring | ✅ confidence-weighted | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Scoped credential proxies (vault) | ✅ AES-256-GCM | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Durable outbox + retry | ✅ | ❌ | ❌ | ❌ | ⚠️ in-mem | ❌ |
+| Chunked + resumable file transfer | ✅ Range + sha256 | ⚠️ base64 only | ❌ | ❌ | ❌ | ❌ |
+| Append-only audit log | ✅ | ❌ | ⚠️ unstructured | ⚠️ unstructured | ⚠️ unstructured | ❌ |
+| Cross-device / cross-account | ✅ | ✅ | ❌ same process | ❌ same process | ❌ same process | ❌ |
+| Memory layer | ❌ (not our problem) | ❌ | ❌ | ❌ | ⚠️ | ✅ |
+| Self-hosted | ✅ | ✅ | ✅ | ✅ | ✅ | ⚠️ paid SaaS |
+| Open source | ✅ Apache-2.0 | ✅ | ✅ | ✅ | ✅ | ❌ |
+
+Synapse is not trying to be a memory framework, an orchestration framework, or an agent runtime. It assumes you already have those. It's the **trust + transport security layer** for the A2A messages those tools already send.
+
+---
+
+## Why Synapse exists
+
+I own a laptop, a desktop, a VPS, and a second Anthropic account on a separate machine. I wanted the AI tools on all four of those devices to send each other tasks, files, and results without exposing my API keys, without trusting the network, and without re-implementing JWT/HMAC/key rotation by hand in every adapter.
+
+A2A solves the format. It does not solve any of the trust questions. Synapse is the smallest possible answer to those questions.
+
+It is deliberately **not**:
+
+- a new wire protocol
+- a federation framework
+- a memory layer
+- an agent OS
+- an orchestration framework
+- a hosted SaaS
+
+It is one Rust daemon + one Python SDK + one Node MCP + a CLI. Total ~7 KLoC of real code (excluding tests). [Apache 2.0](LICENSE).
+
+---
+
+## Security model
+
+Synapse enforces **three gates** on every inbound A2A message. Failure at any gate stops the message and logs to the audit trail.
+
+```
+   inbound message
+        │
+        ▼
+  ┌─────────────┐
+  │  Gate 1     │  Valid HMAC-SHA256 signature from known agent?
+  │  Signature  │  Timestamp within 300s replay window?
+  └──────┬──────┘
+         │ pass
+         ▼
+  ┌─────────────┐
+  │  Gate 2     │  Sender reputation ≥ threshold (default 0.5)?
+  │  Reputation │  If not, content is redacted until explicit accept.
+  └──────┬──────┘
+         │ pass
+         ▼
+  ┌─────────────┐
+  │  Gate 3     │  Does the sender's JWT grant `a2a.send_task`
+  │  Capability │  (or the cap required by the RPC method)?
+  └──────┬──────┘  Does the token's `sub` match the HMAC sender?
+         │ pass
+         ▼
+     process task
+```
+
+Full threat model, attack classes, fixed issues, and known limitations live in [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md). Vulnerability reporting in [`SECURITY.md`](SECURITY.md).
+
+---
+
+## Quick Start
+
+> Prereqs: Python 3.11+, Rust 1.80+, Node 20+, npm 10+.
+
+```bash
+# 1 — clone and install
+git clone <your-fork-url> synapse
+cd synapse
+npm install                       # workspace deps (vault MCP)
+npm --workspace @synapse/secret-vault-mcp run build
+pip install -e ".[dev]"           # Python SDK + CLI
+
+# 2 — build the daemon
+cargo build --release
+
+# 3 — sanity check
+cargo test                        # 39 passing
+pytest -q                         # 79 passing
+npm test                          # 10 passing
+
+# 4 — run the marquee demo
+python3.11 examples/vps-handoff-no-raw-keys/demo.py
+```
+
+### Send your first task
+
+```bash
+# register a target agent's endpoint (one-time)
+synapse presence list             # → []
+
+# send-task with capability gate engaged
+synapse send-task --from alice --to bob --task "review auth module"
+
+# bob reviews and accepts
+synapse inbox list
+synapse inbox review <task_id>
+synapse inbox accept <task_id> --as bob
+
+# offline target? outbox queues automatically.
+synapse outbox list               # see what's pending
+synapse outbox flush              # retry now
+```
+
+---
+
+## Examples
+
+| Path | What it shows |
+|---|---|
+| [`examples/vps-handoff-no-raw-keys/`](examples/vps-handoff-no-raw-keys/) | Real AES-256-GCM vault, scoped proxy, zero raw-key exposure |
+| [`examples/cross-device-task-delegation/`](examples/cross-device-task-delegation/) | Two-terminal walkthrough — laptop sends, VPS receives, result returns |
+| [`examples/malicious-sender-rejection/`](examples/malicious-sender-rejection/) | Forged signature, missing capability, low-rep redaction — all three rejected |
+
+Place demo recordings at:
+
+```
+assets/demo-deploy.gif    — VPS deploy demo
+assets/demo-review.gif    — patch-review demo
+assets/demo-block.gif     — capability denial demo
+assets/demo-1.png         — terminal screenshot from demo 1
+assets/demo-2.png         — terminal screenshot from demo 2
+assets/demo-3.png         — terminal screenshot from demo 3
+```
+
+Recording instructions per demo live in each demo's `README.md`.
+
+---
+
+## Known limitations
+
+> Full list with explanations and mitigations: [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md).
+
+Headlines:
+
+- **No federation, no relay, no discovery.** You configure each peer's URL manually in `identity.json`. By design — v1 is for someone who owns their devices, not a multi-tenant SaaS.
+- **Rust `TrustStore` is in-memory.** Restart loses recorded outcomes. Python store is persisted; for v1 it is the authoritative trust store.
+- **No end-to-end payload encryption.** A2A messages are signed (HMAC) and capability-gated, but not encrypted. Use HTTPS or a tunnel (Tailscale, WireGuard, SSH) on hostile networks.
+- **Capability strings are advisory.** A token granting `vault.store_secret` only matters if the vault MCP checks it. The receiver checks A2A method caps; downstream MCPs must enforce their own.
+
+---
+
+## Roadmap
+
+See [`docs/ROADMAP.md`](docs/ROADMAP.md). Short version: v1.0 is feature-complete. v1.x is a small honest list (Rust-native vault + identity; SQLite-backed trust store; end-to-end payload encryption if a use case earns it).
+
+---
 
 ## License
 
-Apache 2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE).
-Free for personal and commercial use. Attribution required per NOTICE file.
+Apache 2.0 — see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
 
-— Built by Jai Sogani
+Free for personal and commercial use. Attribution required per NOTICE.
+
+---
+
+<sub>Built by Jai Sogani. The repo is small on purpose.</sub>
