@@ -71,14 +71,14 @@ for the full table. Headlines:
 - **No federation, relay, or discovery.** You configure each peer's URL manually.
 - **Rust `TrustStore` is in-memory.** Restart loses recorded outcomes.
 - **No end-to-end payload encryption.** Sign + gate, yes; encrypt, no. Use HTTPS or a tunnel.
-- **Audit log is not tamper-evident.** Append-only, but not hash-chained.
+- ~~Audit log is not tamper-evident.~~ **Hash-chained as of v0.1.0-alpha** — `synapse audit verify` walks the chain.
 - **`vault_client.py` is plaintext in-memory.** Use the vault MCP for persisted secrets.
 
 ## What's next
 
 See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the full follow-up list:
 
-- v0.2: SQLite-backed Rust trust store, hash-chained audit, WAL inbox, per-sender rate limits, endpoint pinning
+- v0.2: SQLite-backed Rust trust store, WAL inbox, per-sender rate limits, endpoint pinning
 - Beyond v0.2 (open questions, not committed): Asymmetric tokens (Ed25519), optional E2E encryption, Rust-native identity + vault
 
 ## Non-goals

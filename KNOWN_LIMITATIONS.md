@@ -47,7 +47,7 @@ These are not gaps. They are non-goals. Listed so nobody is surprised.
 
 | # | Limitation | Impact | Mitigation today | Plan |
 |---|---|---|---|---|
-| A-1 | No hash chain | An attacker with write access can delete or rewrite past entries | Recommend `chattr +a` on the audit file (Linux) | Hash-chained audit — v0.2 (M-9 in BUG_REPORT.md) |
+| A-1 | ~~No hash chain~~ **CLOSED in v0.1.0-alpha** | ~~An attacker with write access can delete or rewrite past entries~~ | Hash-chained audit log (SHA-256 prev_hash + entry_hash per row). `synapse audit verify` detects modifications, deletions, and forged inserts. | Done. |
 | A-2 | No external sink | Audit is local-only | Tail the file into your SIEM / syslog | Pluggable audit sink — v0.2 |
 | A-3 | Audit `detail` is not run through the secret detector | An accidental key-shaped string in a detail field would land in `audit.jsonl` | Don't put secrets in detail strings; CLI doesn't | Wrap `AuditLog.append` with `secret_detector.detect` — v0.2 (M-3) |
 

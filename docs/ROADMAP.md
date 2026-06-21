@@ -33,7 +33,7 @@ These are honest gaps documented in [`KNOWN_LIMITATIONS.md`](../KNOWN_LIMITATION
 
 - [ ] Persist Rust `TrustStore` to SQLite (T-1) — collapses the dual-store gap
 - [ ] Endpoint hash pinning on `identity.json` (N-1 / SH-3)
-- [ ] Hash-chained audit log (A-1 / M-9)
+- [x] **Hash-chained audit log (A-1 / M-9) — landed in v0.1.0-alpha**
 - [ ] Per-sender rate limit on receiver (I-2 / M-2)
 - [ ] Encrypt-at-rest for `vault_client.py` (V-1 / M-7)
 - [ ] Inbox SQLite WAL + busy timeout (I-1 / M-1)

@@ -139,6 +139,43 @@ def _cmd_presence(args: argparse.Namespace) -> int:
     return 1
 
 
+def _cmd_audit(args: argparse.Namespace) -> int:
+    home = _home()
+    _, _, _, _, audit, _, _, _ = _build_state(home)
+
+    if args.subcmd == "verify":
+        result = audit.verify_chain()
+        print(json.dumps({
+            "ok": result.ok,
+            "total_entries": result.total_entries,
+            "chained_entries": result.chained_entries,
+            "unchained_entries": result.unchained_entries,
+            "tampered_at_index": result.tampered_at_index,
+            "reason": result.reason,
+        }, indent=2, sort_keys=True))
+        return 0 if result.ok else 2
+
+    if args.subcmd == "tail":
+        entries = audit.read_all()[-args.n:]
+        out = [
+            {
+                "action": e.action,
+                "sender": e.sender,
+                "receiver": e.receiver,
+                "task_id": e.task_id,
+                "timestamp": e.timestamp,
+                "approval": e.approval,
+                "detail": e.detail,
+                "entry_hash": e.entry_hash[:16] if e.entry_hash else "",
+            }
+            for e in entries
+        ]
+        print(json.dumps(out, indent=2, sort_keys=True))
+        return 0
+
+    return 1
+
+
 def _cmd_outbox(args: argparse.Namespace) -> int:
     home = _home()
     _, _, signer, _, audit, _, outbox, _ = _build_state(home)
@@ -322,6 +359,17 @@ def main() -> int:
         help="purge sent rows older than N seconds (default 1 day)",
     )
     outbox.set_defaults(handler=_cmd_outbox)
+
+    audit_cmd = subs.add_parser(
+        "audit", help="Verify the hash-chained audit log or tail its tail"
+    )
+    audit_cmd.add_argument(
+        "subcmd", nargs="?", default="verify", choices=["verify", "tail"]
+    )
+    audit_cmd.add_argument(
+        "-n", type=int, default=20, help="number of entries for 'tail' (default 20)"
+    )
+    audit_cmd.set_defaults(handler=_cmd_audit)
 
     args = parser.parse_args()
     return int(args.handler(args))

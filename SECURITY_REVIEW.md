@@ -79,8 +79,8 @@ For a flat list of every honest gap, see [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATI
 
 | Attack | Status | Defence |
 |---|---|---|
-| Append a fake row | **Mitigated by FS posture** | Audit is append-only JSONL; operator should set `chattr +a` or equivalent. Hash-chaining is a planned follow-up (M-9). |
-| Delete or rewrite a row | **Not detected in v0.1.0-alpha** | Documented in `KNOWN_LIMITATIONS.md`. Hash-chained tamper evidence is a planned follow-up. |
+| Append a fake row | **Mitigated** | Hash-chained log (SHA-256 `prev_hash` + `entry_hash` per row). An inserted forged entry's `prev_hash` won't match the surrounding chain and is flagged by `synapse audit verify`. |
+| Delete or rewrite a row | **Mitigated** | Same chain. Deleting a row breaks the next row's `prev_hash`; modifying a row breaks its own `entry_hash`. Detected at the exact index. Tested in `test_audit_chain.py` (8 tests). |
 
 ### 2.7 Denial of service
 

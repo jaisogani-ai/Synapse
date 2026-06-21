@@ -28,7 +28,7 @@ First public release.
 - **Chunked file transfer** — content-addressed blob endpoint with HTTP `Range` resume and sha256 end-to-end verification (`blob.py`).
 - **Presence** — `online` / `busy` / `offline` over `GET /presence`. No CRDT, no gossip (`presence.py`).
 - **Inbox + review** — SQLite-backed received-task queue; `synapse inbox review <id>` shows content before accept/reject (`inbox_store.py`, `commands/inbox.py`).
-- **Audit log** — append-only JSONL of every send, receive, accept, reject, capability denial (`audit.py`).
+- **Audit log** — append-only **hash-chained** JSONL. Each entry carries `prev_hash` + `entry_hash` (SHA-256), so any modified, deleted, or forged row is detectable. Verifiable via `synapse audit verify`. (`audit.py`)
 - **5 adapters** — Claude Code, Cursor, Codex, VS Code, Antigravity (`packages/adapters/`).
 - **3 demos** — `vps-handoff-no-raw-keys`, `cross-device-task-delegation`, `malicious-sender-rejection`.
 - **CLI** — `send-task`, `inbox list|review|accept|reject`, `outbox list|retry|flush|purge`, `presence get|set|list`.
