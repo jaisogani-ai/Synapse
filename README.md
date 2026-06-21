@@ -25,8 +25,6 @@ Trusted A2A for Claude Code, Cursor, Codex, Antigravity, VS Code — and anythin
 
 ![Synapse demo](assets/demo.gif)
 
-<sub>↑ 15-second loop. Full 45-second video is attached to the [latest release](https://github.com/jaisogani-ai/synapse/releases/latest).</sub>
-
 </div>
 
 ---
