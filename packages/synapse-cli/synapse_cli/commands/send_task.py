@@ -90,6 +90,7 @@ def send_task(
     outbox: OutboxStore | None = None,
     blob_cache: BlobCache | None = None,
     blob_base_url: str = "",
+    ssl_context: "object | None" = None,
     confirm_fn: Callable[[str], bool] | None = None,
     reachable_fn: Callable[[str], bool] | None = None,
 ) -> SendResult:
@@ -108,8 +109,12 @@ def send_task(
 
     # ── 2. Presence check — if outbox is configured, an offline target
     #      queues; otherwise we still fail fast for backward compatibility.
-    check_fn = reachable_fn or is_reachable
-    target_online = check_fn(endpoint.url)
+    #      When mTLS is in use, the SSL context is required for the GET probe
+    #      to succeed (the receiver demands a client cert at TLS handshake).
+    if reachable_fn is not None:
+        target_online = reachable_fn(endpoint.url)
+    else:
+        target_online = is_reachable(endpoint.url, ssl_context=ssl_context)
     if not target_online and outbox is None:
         return SendResult(
             ok=False,
@@ -274,7 +279,7 @@ def send_task(
     try:
         response = post_jsonrpc(
             endpoint.url, payload, opts.sender_id, signed.signature_hex,
-            timestamp=signed.timestamp, token=token,
+            timestamp=signed.timestamp, token=token, ssl_context=ssl_context,
         )
     except TransportUnreachable as exc:
         if outbox is not None:

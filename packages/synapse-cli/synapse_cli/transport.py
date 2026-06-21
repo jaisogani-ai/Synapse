@@ -93,10 +93,22 @@ def post_jsonrpc(
         raise TransportUnreachable(f"target unreachable: {exc}") from exc
 
 
-def is_reachable(url: str, timeout: float = 1.0) -> bool:
-    """Quick presence check — does the target accept TCP connections?"""
+def is_reachable(
+    url: str,
+    timeout: float = 1.0,
+    ssl_context: "ssl.SSLContext | None" = None,
+) -> bool:
+    """Quick presence check — does the target accept TCP connections?
+
+    When ``url`` is HTTPS and the caller has set up mTLS, the SSL context
+    must be passed in or the cert validation will fail and the target will
+    look offline even though it's running.
+    """
     try:
         req = urllib.request.Request(url, method="GET")
+        if ssl_context is not None and url.lower().startswith("https://"):
+            with urllib.request.urlopen(req, timeout=timeout, context=ssl_context) as resp:
+                return resp.status < 500
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return resp.status < 500
     except urllib.error.HTTPError as e:

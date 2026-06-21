@@ -202,6 +202,83 @@ def test_mtls_server_rejects_untrusted_client_cert(tmp_path: Path) -> None:
         server.stop()
 
 
+def test_send_task_end_to_end_over_mtls(tmp_path: Path) -> None:
+    """Regression: presence check + POST through ``send_task`` over real mTLS.
+
+    This is the path that exposed the bug where ``is_reachable`` ignored
+    the SSL context and reported the target offline before we ever tried
+    to POST. Keep this test or that bug reappears.
+    """
+
+    from synapse.security.zero_trust import ZeroTrustNetwork
+    from synapse_cli.a2a_signer import A2ASigner
+    from synapse_cli.audit import AuditLog
+    from synapse_cli.commands.send_task import SendOptions, send_task
+    from synapse_cli.identity_resolver import IdentityResolver
+    from synapse_cli.inbox_store import InboxStore
+    from synapse_cli.receiver import ReceivingDaemon
+    from synapse_cli.trust import TrustStore
+    from synapse_cli.vault_client import VaultClient
+
+    certs_dir = tmp_path / "certs"
+    alice_bundle = _smaller_cert("alice", certs_dir)
+    bob_bundle = _smaller_cert("bob", certs_dir)
+
+    server_ctx = make_server_ssl_context(
+        bob_bundle.cert_path, bob_bundle.key_path, certs_dir
+    )
+    client_ctx = make_client_ssl_context(
+        alice_bundle.cert_path, alice_bundle.key_path, certs_dir
+    )
+
+    network = ZeroTrustNetwork()
+    network.issue_identity("alice")
+    network.issue_identity("bob")
+    bob_inbox = InboxStore(tmp_path / "bob_inbox.db")
+    bob_audit = AuditLog(tmp_path / "bob_audit.jsonl")
+    bob_trust = TrustStore(tmp_path / "bob_trust.json")
+    bob_trust.set_score("alice", 0.9)
+    receiver = ReceivingDaemon(
+        receiver_id="bob",
+        signer=A2ASigner(network),
+        trust=bob_trust,
+        inbox=bob_inbox,
+        audit=bob_audit,
+    )
+
+    def handler(body, sender_id, signature_hex, timestamp="", token=""):
+        return receiver.handle_request(body, sender_id, signature_hex, timestamp, token)
+
+    port = _free_port()
+    server = A2AServer(port=port, handler=handler, ssl_context=server_ctx)
+    server.start()
+    try:
+        time.sleep(0.3)
+        alice_resolver = IdentityResolver(tmp_path / "alice_identity.json")
+        alice_resolver.register("bob", f"https://127.0.0.1:{port}/a2a")
+        alice_trust = TrustStore(tmp_path / "alice_trust.json")
+        alice_trust.set_score("bob", 0.9)
+        alice_audit = AuditLog(tmp_path / "alice_audit.jsonl")
+
+        result = send_task(
+            SendOptions(sender_id="alice", target_id="bob", task_text="hi mTLS"),
+            resolver=alice_resolver,
+            trust=alice_trust,
+            signer=A2ASigner(network),
+            vault=VaultClient(),
+            audit=alice_audit,
+            ssl_context=client_ctx,
+        )
+        assert result.ok, result.reason
+        assert not result.queued
+        rows = bob_inbox.list_all()
+        assert len(rows) == 1
+        assert rows[0].task_id == result.task_id
+        assert rows[0].sender == "alice"
+    finally:
+        server.stop()
+
+
 def test_extract_peer_common_name_returns_empty_when_unset() -> None:
     """Safety: helper must not blow up when the SSL object has no peer cert."""
 

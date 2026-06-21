@@ -16,7 +16,7 @@ Trusted A2A for **Claude Code, Cursor, Codex, Antigravity, VS Code** — and any
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB.svg?logo=python&logoColor=white)](packages/synapse-core/)
 [![Rust](https://img.shields.io/badge/Rust-1.80%2B-CE412B.svg?logo=rust&logoColor=white)](daemon/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Node%2020%2B-3178C6.svg?logo=typescript&logoColor=white)](packages/synapse-vault-mcp/)
-[![Tests](https://img.shields.io/badge/tests-164%2F164-brightgreen.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-165%2F165-brightgreen.svg)](#tests)
 [![A2A](https://img.shields.io/badge/A2A-spec--compliant-7C3AED.svg)](https://a2aproject.org)
 
 </div>
@@ -162,9 +162,9 @@ Everything below is wired up, tested, and demonstrated. No placeholders.
 | Suite | Result | Command |
 |---|---|---|
 | `cargo test` | **39 / 39** ✅ | `cargo test` |
-| `pytest` | **115 / 115** ✅ | `PYTHONPATH=… python3.11 -m pytest tests packages/adapters packages/synapse-cli/tests -q` |
+| `pytest` | **116 / 116** ✅ | `PYTHONPATH=… python3.11 -m pytest tests packages/adapters packages/synapse-cli/tests -q` |
 | `npm test` (vault MCP) | **10 / 10** ✅ | `(cd packages/synapse-vault-mcp && npm test)` |
-| **Total** | **164 / 164** | |
+| **Total** | **165 / 165** | |
 
 Plus the live `vps-handoff-no-raw-keys` demo: **RESULT: PASS** (real AES-256-GCM vault driven via the Node bridge, asserts zero raw-key audit exposure).
 
