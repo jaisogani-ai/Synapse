@@ -32,16 +32,21 @@ demonstrated. Expect rough edges. Known gaps are documented in
 | **Inbox + review** | SQLite-backed received-task queue. Operator can review content before accepting or rejecting. |
 | **Audit log** | Append-only JSONL of every send, receive, accept, reject, and capability denial. |
 | **5 adapters** | Claude Code, Cursor, Codex, VS Code, Antigravity — each subclassing `BaseAdapter`. 42 adapter tests. |
-| **CLI** | `send-task`, `inbox list/review/accept/reject`, `outbox list/flush`, `presence list/set`. |
+| **CLI** | `send-task`, `inbox list/review/accept/reject`, `outbox list/flush`, `presence list/set`, `audit verify/tail/review`, `quarantine list/add/release`. |
+| **Quarantine + threat response** | Per-agent failure counter, auto-block after 5 consecutive Gate-1 failures. |
+| **Rate anomaly detection** | Per-sender Z-score over a 60-second sliding window of 1-second buckets. |
+| **Access review** | `synapse audit review` summarizes the audit log by sender/receiver/action. |
+| **Device identity (DID-style)** | `did:synapse:<agent_id>[#<device_id>]` identifier format. |
+| **Continuous Verifier** | Labelled three-gate orchestrator; tests pin gate order and short-circuit semantics. |
 
 ## Tests
 
 | Suite | Count |
 |---|---|
 | `cargo test` (Rust daemon) | 39 / 39 |
-| `pytest` (Python SDK + CLI + adapters) | 79 / 79 |
+| `pytest` (Python SDK + CLI + adapters) | 106 / 106 |
 | `npm test` (vault MCP) | 10 / 10 |
-| **Total** | **128 / 128** |
+| **Total** | **155 / 155** |
 
 ## Demos
 

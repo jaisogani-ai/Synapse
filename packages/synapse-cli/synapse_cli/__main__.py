@@ -17,6 +17,8 @@ import sys
 from dataclasses import asdict
 from pathlib import Path
 
+from synapse.security.access_review import review as access_review
+from synapse.security.quarantine import QuarantineStore
 from synapse.security.zero_trust import ZeroTrustNetwork
 
 from .a2a_signer import A2ASigner
@@ -172,6 +174,69 @@ def _cmd_audit(args: argparse.Namespace) -> int:
         ]
         print(json.dumps(out, indent=2, sort_keys=True))
         return 0
+
+    if args.subcmd == "review":
+        report = access_review(
+            audit.read_all(),
+            window_from=getattr(args, "since", "") or "",
+            window_to=getattr(args, "until", "") or "9999-12-31T23:59:59Z",
+        )
+        out = {
+            "window_from": report.window_from,
+            "window_to": report.window_to,
+            "total_entries": report.total_entries,
+            "by_action": report.by_action,
+            "by_sender": [
+                {"agent_id": a.agent_id, "total": a.total, "actions": a.actions}
+                for a in report.by_sender
+            ],
+            "by_receiver": [
+                {"agent_id": a.agent_id, "total": a.total, "actions": a.actions}
+                for a in report.by_receiver
+            ],
+        }
+        print(json.dumps(out, indent=2, sort_keys=True))
+        return 0
+
+    return 1
+
+
+def _cmd_quarantine(args: argparse.Namespace) -> int:
+    home = _home()
+    home.mkdir(parents=True, exist_ok=True)
+    store = QuarantineStore(home / "quarantine.json")
+
+    if args.subcmd == "list":
+        entries = store.list_all()
+        print(json.dumps([
+            {"agent_id": e.agent_id, "reason": e.reason, "at": e.at}
+            for e in entries
+        ], indent=2, sort_keys=True))
+        return 0
+
+    if args.subcmd == "add":
+        if not args.agent_id:
+            print("error: agent_id required for add", file=sys.stderr)
+            return 2
+        import time as _t
+        entry = store.quarantine(
+            args.agent_id,
+            reason=args.reason or "manual",
+            at=_t.strftime("%Y-%m-%dT%H:%M:%SZ", _t.gmtime()),
+        )
+        print(json.dumps(
+            {"agent_id": entry.agent_id, "reason": entry.reason, "at": entry.at},
+            sort_keys=True,
+        ))
+        return 0
+
+    if args.subcmd == "release":
+        if not args.agent_id:
+            print("error: agent_id required for release", file=sys.stderr)
+            return 2
+        ok = store.release(args.agent_id)
+        print(json.dumps({"ok": ok, "agent_id": args.agent_id}, sort_keys=True))
+        return 0 if ok else 2
 
     return 1
 
@@ -361,15 +426,39 @@ def main() -> int:
     outbox.set_defaults(handler=_cmd_outbox)
 
     audit_cmd = subs.add_parser(
-        "audit", help="Verify the hash-chained audit log or tail its tail"
+        "audit", help="Verify the hash chain, tail, or review the audit log"
     )
     audit_cmd.add_argument(
-        "subcmd", nargs="?", default="verify", choices=["verify", "tail"]
+        "subcmd",
+        nargs="?",
+        default="verify",
+        choices=["verify", "tail", "review"],
     )
     audit_cmd.add_argument(
         "-n", type=int, default=20, help="number of entries for 'tail' (default 20)"
     )
+    audit_cmd.add_argument(
+        "--since", default="", help="ISO timestamp lower bound for 'review'"
+    )
+    audit_cmd.add_argument(
+        "--until", default="", help="ISO timestamp upper bound for 'review'"
+    )
     audit_cmd.set_defaults(handler=_cmd_audit)
+
+    quarantine_cmd = subs.add_parser(
+        "quarantine",
+        help="List, add, or release quarantined agents",
+    )
+    quarantine_cmd.add_argument(
+        "subcmd", nargs="?", default="list", choices=["list", "add", "release"]
+    )
+    quarantine_cmd.add_argument(
+        "agent_id", nargs="?", help="agent_id for add or release"
+    )
+    quarantine_cmd.add_argument(
+        "--reason", default="", help="reason text for 'add' (default 'manual')"
+    )
+    quarantine_cmd.set_defaults(handler=_cmd_quarantine)
 
     args = parser.parse_args()
     return int(args.handler(args))

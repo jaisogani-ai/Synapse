@@ -29,6 +29,11 @@ First public release.
 - **Presence** — `online` / `busy` / `offline` over `GET /presence`. No CRDT, no gossip (`presence.py`).
 - **Inbox + review** — SQLite-backed received-task queue; `synapse inbox review <id>` shows content before accept/reject (`inbox_store.py`, `commands/inbox.py`).
 - **Audit log** — append-only **hash-chained** JSONL. Each entry carries `prev_hash` + `entry_hash` (SHA-256), so any modified, deleted, or forged row is detectable. Verifiable via `synapse audit verify`. (`audit.py`)
+- **Quarantine + threat response** — per-agent failure counter, auto-block after 5 consecutive Gate-1 failures, manual `synapse quarantine list/add/release` (`quarantine.py`, `threat_response.py`).
+- **Rate anomaly detection** — per-sender Z-score over a 60s sliding window of 1s buckets (`anomaly.py`).
+- **Access review** — `synapse audit review` summarizes hash-chained log by sender/receiver/action with optional time window (`access_review.py`).
+- **Device identity** — stable `did:synapse:<agent_id>[#<device_id>]` identifier format (`device_identity.py`).
+- **Continuous Verifier** — labelled three-gate orchestrator; tests pin gate order + short-circuit (`continuous_verifier.py`).
 - **5 adapters** — Claude Code, Cursor, Codex, VS Code, Antigravity (`packages/adapters/`).
 - **3 demos** — `vps-handoff-no-raw-keys`, `cross-device-task-delegation`, `malicious-sender-rejection`.
 - **CLI** — `send-task`, `inbox list|review|accept|reject`, `outbox list|retry|flush|purge`, `presence get|set|list`.

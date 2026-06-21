@@ -16,7 +16,7 @@ Trusted A2A for **Claude Code, Cursor, Codex, Antigravity, VS Code** — and any
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB.svg?logo=python&logoColor=white)](packages/synapse-core/)
 [![Rust](https://img.shields.io/badge/Rust-1.80%2B-CE412B.svg?logo=rust&logoColor=white)](daemon/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Node%2020%2B-3178C6.svg?logo=typescript&logoColor=white)](packages/synapse-vault-mcp/)
-[![Tests](https://img.shields.io/badge/tests-136%2F136-brightgreen.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-155%2F155-brightgreen.svg)](#tests)
 [![A2A](https://img.shields.io/badge/A2A-spec--compliant-7C3AED.svg)](https://a2aproject.org)
 
 </div>
@@ -120,7 +120,13 @@ A2A is the wire format. Synapse is the trust layer.
 
 The 6 source-true Mermaid flow diagrams (high-level, identity, vault, A2A task, capability, trust) live in [`docs/diagrams/`](docs/diagrams/).
 
-> **Diagram disclosure.** Visual concept diagrams (`hero.png`, `architecture.png`) above show the *intent* of the v0.1 trust layer and use compact labels. For exactly what ships in v0.1.0-alpha (vs what's planned), see [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md). Notably **Mutual TLS, DID, end-to-end encryption, and the "Security Agents" detection suite are not implemented in v0.1**; we use HMAC-signed HTTP, per-agent secrets, the static-scan secret detector, and capability gating.
+> **Diagram disclosure.** Visual concept diagrams (`hero.png`, `architecture.png`) above show the v0.1.0-alpha trust layer. Below is the exact mapping from diagram label → what ships today.
+>
+> ✅ **Implemented in v0.1.0-alpha:** Identity (per-agent HMAC + HS256 JWT) · Trust & Reputation (confidence-weighted) · Vault & Secrets (AES-256-GCM + scoped proxies) · A2A Messaging (spec-compliant) · Audit & Logging (**hash-chained, forensically verifiable**) · Capability Enforcement (per RPC method + per Rust IPC TrustOp) · Secret Detector (140+ patterns) · Risk Scoring (reputation = risk score) · Policy Enforcement (capability gate) · Anomaly Detection (per-sender rate Z-score) · Threat Response (auto-block after N consecutive Gate-1 failures) · Quarantine & Isolation (`synapse quarantine`) · Access Review (`synapse audit review`) · Continuous Verification (every message walks all three gates) · Device Identity in `did:synapse:<agent_id>` format.
+>
+> ❌ **Not yet implemented:** Mutual TLS (use HTTPS/Tailscale at the transport layer) · full W3C DID-method registry · end-to-end payload encryption · Behaviour Analysis as an ML model (we ship reputation, which is statistical, not learned). All listed in [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md).
+>
+> Phrases the diagrams use that this README does **not**: "Enterprise Grade", "Production Ready". Synapse is v0.1.0-alpha — those phrases would be incorrect.
 
 ---
 
@@ -141,6 +147,11 @@ Everything below is wired up, tested, and demonstrated. No placeholders.
 | **Inbox + review** | SQLite-backed received-task queue; `synapse inbox review <id>` shows full content before accept/reject | [`inbox_store.py`](packages/synapse-cli/synapse_cli/inbox_store.py), [`commands/inbox.py`](packages/synapse-cli/synapse_cli/commands/inbox.py) |
 | **Hash-chained audit** | Append-only JSONL with `prev_hash` + `entry_hash` per row. `synapse audit verify` detects modifications, deletions, forged inserts. | [`audit.py`](packages/synapse-cli/synapse_cli/audit.py) |
 | **Static secret detection** | 140+ vendor patterns + entropy heuristic for pre-commit / pre-send scanning | [`secret_detector.py`](packages/synapse-core/synapse/security/secret_detector.py) |
+| **Quarantine + threat response** | Per-agent counter on Gate-1 failures; auto-quarantine after 5 consecutive; manual list/add/release via `synapse quarantine` | [`quarantine.py`](packages/synapse-core/synapse/security/quarantine.py), [`threat_response.py`](packages/synapse-core/synapse/security/threat_response.py) |
+| **Rate anomaly detection** | Per-sender Z-score over a 60 s sliding window of 1 s buckets — bursts at ≥ 3σ above the rolling mean are flagged | [`anomaly.py`](packages/synapse-core/synapse/security/anomaly.py) |
+| **Access review** | `synapse audit review` summarizes the hash-chained log by sender/receiver/action inside an optional time window | [`access_review.py`](packages/synapse-core/synapse/security/access_review.py) |
+| **Device identity (DID)** | Stable `did:synapse:<agent_id>[#<device_id>]` identifier format. Not full W3C DID method registry. | [`device_identity.py`](packages/synapse-core/synapse/security/device_identity.py) |
+| **Continuous Verifier** | The labelled three-gate orchestrator (quarantine → signature → reputation → capability). Tests pin gate order and short-circuit. | [`continuous_verifier.py`](packages/synapse-core/synapse/security/continuous_verifier.py) |
 | **5 platform adapters** | Claude Code, Cursor, Codex, VS Code, Antigravity — each ~30 LOC on `BaseAdapter`; 42 tests pass | [`packages/adapters/`](packages/adapters/) |
 
 ### Tests
@@ -148,9 +159,9 @@ Everything below is wired up, tested, and demonstrated. No placeholders.
 | Suite | Result | Command |
 |---|---|---|
 | `cargo test` | **39 / 39** ✅ | `cargo test` |
-| `pytest` | **87 / 87** ✅ | `PYTHONPATH=… python3.11 -m pytest tests packages/adapters packages/synapse-cli/tests -q` |
+| `pytest` | **106 / 106** ✅ | `PYTHONPATH=… python3.11 -m pytest tests packages/adapters packages/synapse-cli/tests -q` |
 | `npm test` (vault MCP) | **10 / 10** ✅ | `(cd packages/synapse-vault-mcp && npm test)` |
-| **Total** | **136 / 136** | |
+| **Total** | **155 / 155** | |
 
 Plus the live `vps-handoff-no-raw-keys` demo: **RESULT: PASS** (real AES-256-GCM vault driven via the Node bridge, asserts zero raw-key audit exposure).
 
@@ -268,6 +279,12 @@ synapse outbox flush          # → retry due rows now
 # Forensically verify the audit log end-to-end
 synapse audit verify          # → {"ok": true, "chained_entries": N, ...}
 synapse audit tail -n 20      # → last 20 entries with short entry hashes
+synapse audit review          # → who-did-what summary by sender / action
+
+# Quarantine surface (auto-fires after N consecutive Gate-1 failures)
+synapse quarantine list
+synapse quarantine add <agent_id> --reason "manual block"
+synapse quarantine release <agent_id>
 ```
 
 State lives under `$SYNAPSE_HOME` (default `~/.synapse/`): `identity.json`, `trust.json`, `inbox.db`, `outbox.db`, `audit.jsonl`, `blobs/`. Everything is inspect-friendly with `cat`, `jq`, and `sqlite3`.

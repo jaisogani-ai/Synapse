@@ -15,6 +15,8 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
+from synapse.security.quarantine import QuarantineStore
+from synapse.security.threat_response import FailureTracker
 from synapse.security.zero_trust import ZeroTrustNetwork
 
 from .a2a import (
@@ -56,20 +58,31 @@ class ReceivingDaemon:
     audit: AuditLog
     network: ZeroTrustNetwork | None = None
     enforce_capabilities: bool = True
+    quarantine: QuarantineStore | None = None
+    failure_tracker: FailureTracker | None = None
 
     def __post_init__(self) -> None:
         # If no network was injected, reuse the signer's. They share secrets
         # so a token issued by one verifies on the other.
         if self.network is None:
             self.network = self.signer._network  # noqa: SLF001 — intentional
+        # In-process per-agent failure counter; opt-in for receivers that care.
+        if self.failure_tracker is None:
+            self.failure_tracker = FailureTracker()
 
     def handle_request(
         self, body: bytes, sender_id: str, signature_hex: str,
         timestamp: str = "", token: str = "",
     ) -> dict[str, Any]:
+        # ── 0. Quarantine pre-check ──
+        if self.quarantine is not None and sender_id and self.quarantine.is_quarantined(sender_id):
+            self._audit_reject("quarantined", sender_id, "")
+            return self._error_response("sender is quarantined")
+
         # ── 1. Reject unsigned / missing-sender messages immediately ──
         if not sender_id or not signature_hex:
             self._audit_reject("missing_sender_or_signature", sender_id, "")
+            self._record_gate1_failure(sender_id)
             return self._error_response("unsigned or missing sender")
 
         # ── 2. Parse + verify timestamp (replay window) ──
@@ -79,12 +92,17 @@ class ReceivingDaemon:
             ts_int = 0
         if ts_int == 0:
             self._audit_reject("missing_timestamp", sender_id, "")
+            self._record_gate1_failure(sender_id)
             return self._error_response("missing or invalid timestamp")
 
         # ── 3. Verify signature over (payload || timestamp) ──
         if not self.signer.verify_raw(sender_id, body, signature_hex, ts_int):
             self._audit_reject("bad_signature_or_stale", sender_id, "")
+            self._record_gate1_failure(sender_id)
             return self._error_response("signature verification failed or message stale")
+        # Gate 1 passed — reset the failure counter so transient noise doesn't quarantine.
+        assert self.failure_tracker is not None
+        self.failure_tracker.record_success(sender_id)
 
         # ── 3. Parse JSON-RPC ──
         try:
@@ -272,6 +290,34 @@ class ReceivingDaemon:
                 detail=reason,
             )
         )
+
+    def _record_gate1_failure(self, sender_id: str) -> None:
+        """Track Gate-1 failures and auto-quarantine after the threshold."""
+        if not sender_id:
+            return
+        assert self.failure_tracker is not None
+        self.failure_tracker.record_failure(sender_id)
+        if self.failure_tracker.should_block(sender_id) and self.quarantine is not None:
+            if not self.quarantine.is_quarantined(sender_id):
+                self.quarantine.quarantine(
+                    sender_id,
+                    reason=(
+                        f"auto: {self.failure_tracker.count_for(sender_id)} "
+                        "consecutive Gate-1 failures"
+                    ),
+                    at=now_iso(),
+                )
+                self.audit.append(
+                    AuditEntry(
+                        action="auto_quarantine",
+                        sender=sender_id,
+                        receiver=self.receiver_id,
+                        task_id="<no-task>",
+                        timestamp=now_iso(),
+                        approval="rejected",
+                        detail="threat-response auto-block",
+                    )
+                )
 
     def _error_response(
         self, message: str, req_id: str = ""
