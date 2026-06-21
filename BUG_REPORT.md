@@ -1,9 +1,13 @@
-# Synapse v1 — Full Bug Report (Phase A delayed audit)
+# Synapse — Full Bug Report (Phase A audit)
 
 **Date:** 2026-06-20
 **Scope:** `daemon/`, `packages/`, `examples/` — all files
 **Method:** Manual inspection focused on race conditions, replay attacks,
 trust bypasses, vault edge cases, serialization safety, dead code.
+
+> **Note:** This is the original pre-release audit. Current status of each
+> finding is tracked in [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md) and
+> [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md).
 
 ---
 

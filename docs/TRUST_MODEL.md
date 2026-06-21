@@ -74,12 +74,12 @@ and choose to accept or reject. Content is only revealed after explicit
 acceptance.
 
 **Implementation:** The **Python store** at
-`packages/synapse-cli/synapse_cli/trust.py` is the **v1-authoritative** trust
+`packages/synapse-cli/synapse_cli/trust.py` is the **v0.1-authoritative** trust
 store and is what the CLI consults. `daemon/src/trust/reputation.rs` is the
 Rust-native target for the same logic, currently **in-memory** and **not
 synchronized** with the Python store — it is a roadmap target, not a
 production source of truth. See [ROADMAP.md](ROADMAP.md) for the
-"reconcile dual stores" P1 item.
+"reconcile dual stores" follow-up.
 
 ## Gate 3: Capability Authorization
 
@@ -96,7 +96,7 @@ A request that requires a capability not present in the agent's token is
 rejected with a clear error. Capabilities are checked after signature
 verification but before any side effects.
 
-### How Gate 3 is wired (v1.0)
+### How Gate 3 is wired (v0.1)
 
 **A2A receiver — `packages/synapse-cli/synapse_cli/receiver.py`**
 

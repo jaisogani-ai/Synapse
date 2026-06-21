@@ -3,8 +3,10 @@
 
 # @synapse/backend-architect-mcp
 
-**MCP #5** — production-ready backend scaffolds, schemas, auth, queues, and
-microservice splits, generated as **real, runnable code** (not pseudocode).
+**MCP #5 (spinout / deprecated)** — backend scaffold helpers (schemas, auth,
+queues, microservice splits) generated as **real, runnable code** (not
+pseudocode). Not part of Synapse v0.1.0-alpha — see
+[`spinout/README.md`](../README.md) for the spinout policy.
 
 ## Tools
 

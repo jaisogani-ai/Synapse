@@ -3,9 +3,11 @@
 
 # Roadmap
 
-> v1.0 is feature-complete. v1.x is the honest follow-up list, not a wishlist.
+> **v0.1 is an alpha.** It ships the trust primitives plus the A2A transport
+> surface, with tests and demos — not a hardened release. What follows is an
+> honest follow-up list, not a wishlist.
 
-## v1.0 — shipped
+## v0.1 — shipped (alpha)
 
 Everything below is in the repo today, with tests:
 
@@ -23,7 +25,7 @@ Everything below is in the repo today, with tests:
 - **3 demos** — VPS handoff, cross-device delegation, malicious sender rejection
 - **128 tests** — 39 Rust + 79 Python + 10 TypeScript, all green
 
-## v1.x — planned follow-ups
+## v0.2 — planned follow-ups
 
 These are honest gaps documented in [`KNOWN_LIMITATIONS.md`](../KNOWN_LIMITATIONS.md). Each is a contained change, not a new subsystem.
 
@@ -50,7 +52,7 @@ These are honest gaps documented in [`KNOWN_LIMITATIONS.md`](../KNOWN_LIMITATION
 - [ ] How-to: rotating a compromised agent identity
 - [ ] How-to: integrating a custom adapter
 
-## v2 — open questions
+## Beyond v0.2 — open questions (not committed)
 
 These are ideas the project has not committed to. They earn their way in only if real use justifies the maintenance cost.
 

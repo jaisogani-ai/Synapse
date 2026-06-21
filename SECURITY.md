@@ -46,7 +46,7 @@ Please include:
 
 - Theoretical attacks that require the operator to grant `*` to an untrusted agent. The `*` wildcard is reserved for the daemon's own self-signed requests; documented as such.
 - A receiver crashing on a malformed input where no exfiltration or escalation is possible — file an ordinary bug instead, we'll still fix it.
-- Findings in `spinout/` — those modules are not part of v1.0 and are excluded from the security boundary. They are marked deprecated.
+- Findings in `spinout/` — those modules are not part of the v0.1 release and are excluded from the security boundary. They are marked deprecated.
 
 ## Response timelines
 

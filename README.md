@@ -9,8 +9,15 @@
 
 Trusted A2A for Claude Code, Cursor, Codex, Antigravity, VS Code — and anything else that speaks the A2A spec.
 
+> **⚠️ Synapse v0.1.0-alpha.** This is an early, open-source release. The trust
+> primitives (identity, reputation, vault, capability gate) are implemented and
+> tested. Synapse is **not** hardened for unattended deployments — there is
+> no SLA, no security advisory pipeline yet, and several follow-ups are
+> listed openly in [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md). Break
+> things, open issues.
+
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-128%2F128%20passing-brightgreen.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-128%2F128-brightgreen.svg)](#tests)
 [![Rust](https://img.shields.io/badge/daemon-Rust%201.80%2B-orange.svg)](daemon/)
 [![Python](https://img.shields.io/badge/SDK-Python%203.11%2B-green.svg)](packages/synapse-core/)
 [![A2A](https://img.shields.io/badge/A2A-spec--compliant-purple.svg)](https://a2aproject.org)
@@ -136,11 +143,11 @@ Codex on a VPS deploys an app using an Anthropic API key. The key never leaves t
 python3.11 examples/vps-handoff-no-raw-keys/demo.py
 ```
 
-### 2 — Cursor review with patch return + human approval
+### 2 — Cross-device task delegation with human approval
 
 `![demo-review](assets/demo-review.gif)` *(placeholder — record per `examples/cross-device-task-delegation/README.md`)*
 
-Laptop asks Cursor on desktop to review `auth.rs`. Cursor returns a patch. Operator runs `synapse inbox review <task_id>` to see the diff, then `accept` or `reject`.
+Laptop sends a signed "review auth module" task plus an attached file to the VPS receiver. The VPS receiver polls its inbox, prompts the operator to accept or reject, then sends a result back via `tasks/result`. The README shows you the rich version of this flow; the demo runs the message path end-to-end with HMAC signing, capability gate, and audit log.
 
 ```bash
 # terminal 1 — receiver
@@ -154,7 +161,7 @@ python3.11 examples/cross-device-task-delegation/run_laptop.py
 
 `![demo-block](assets/demo-block.gif)` *(placeholder — record per `examples/malicious-sender-rejection/README.md`)*
 
-An unknown sender (rep 0.2), a forged signature, and a token missing `a2a.send_task` all hit the receiver. All three are rejected, audited as `reject_bad_signature` / `reject_capability` / `reject_unsigned`. No task ever lands in the inbox.
+An unsigned message, a forged signature, and a low-reputation sender all hit the receiver. All three are rejected or redacted at the gate, audited as `reject_unsigned` / `reject_capability` / `receive_task` (with content redacted in `inbox list`). The receiver then accepts a legitimate task to prove the gates didn't break it.
 
 ```bash
 python3.11 examples/malicious-sender-rejection/demo.py
@@ -241,7 +248,7 @@ Full threat model, attack classes, fixed issues, and known limitations live in [
 
 ```bash
 # 1 — clone and install
-git clone <your-fork-url> synapse
+git clone https://github.com/jaisogani-ai/synapse.git
 cd synapse
 npm install                       # workspace deps (vault MCP)
 npm --workspace @synapse/secret-vault-mcp run build
@@ -309,8 +316,8 @@ Recording instructions per demo live in each demo's `README.md`.
 
 Headlines:
 
-- **No federation, no relay, no discovery.** You configure each peer's URL manually in `identity.json`. By design — v1 is for someone who owns their devices, not a multi-tenant SaaS.
-- **Rust `TrustStore` is in-memory.** Restart loses recorded outcomes. Python store is persisted; for v1 it is the authoritative trust store.
+- **No federation, no relay, no discovery.** You configure each peer's URL manually in `identity.json`. By design — Synapse is for someone who owns their devices, not a multi-tenant SaaS.
+- **Rust `TrustStore` is in-memory.** Restart loses recorded outcomes. Python store is persisted; for v0.1.0-alpha it is the authoritative trust store.
 - **No end-to-end payload encryption.** A2A messages are signed (HMAC) and capability-gated, but not encrypted. Use HTTPS or a tunnel (Tailscale, WireGuard, SSH) on hostile networks.
 - **Capability strings are advisory.** A token granting `vault.store_secret` only matters if the vault MCP checks it. The receiver checks A2A method caps; downstream MCPs must enforce their own.
 
@@ -318,7 +325,7 @@ Headlines:
 
 ## Roadmap
 
-See [`docs/ROADMAP.md`](docs/ROADMAP.md). Short version: v1.0 is feature-complete. v1.x is a small honest list (Rust-native vault + identity; SQLite-backed trust store; end-to-end payload encryption if a use case earns it).
+See [`docs/ROADMAP.md`](docs/ROADMAP.md). Short version: **v0.1 is an alpha** that ships the trust primitives (identity, reputation, vault, capability gate) plus the A2A transport surface, with tests and demos. v0.2+ is a small, honest list — SQLite-backed trust store, end-to-end payload encryption, CI — if real use earns them.
 
 ---
 

@@ -2,7 +2,7 @@
 
 # Trust / reputation flow
 
-> Source: `packages/synapse-cli/synapse_cli/trust.py` (v1-authoritative Python store), `daemon/src/trust/reputation.rs` (Rust mirror — in-memory in v1.0).
+> Source: `packages/synapse-cli/synapse_cli/trust.py` (v0.1-authoritative Python store), `daemon/src/trust/reputation.rs` (Rust mirror — in-memory in v0.1).
 
 ```mermaid
 flowchart TB
@@ -34,8 +34,8 @@ flowchart TB
 
 Threshold is per-call (`DEFAULT_TRUST_THRESHOLD` constant). Operator can tune by passing `--confirm` to override on a single send.
 
-## Authoritative store note (v1.0)
+## Authoritative store note (v0.1)
 
-Two stores exist. **The Python store is authoritative.** The Rust store is mirror infrastructure being filled in over v1.x. Diagram above is the Python store; the Rust store accepts the same TrustOps over IPC and applies the same logic, but does not feed back into the CLI's `trust.json` in v1.
+Two stores exist. **The Python store is authoritative.** The Rust store is mirror infrastructure being filled in over subsequent releases. Diagram above is the Python store; the Rust store accepts the same TrustOps over IPC and applies the same logic, but does not feed back into the CLI's `trust.json` in v0.1.
 
 If you read `get_score` from the Rust daemon directly, you may get a different answer than the Python CLI. Documented in [`docs/ARCHITECTURE.md`](../ARCHITECTURE.md) and [`KNOWN_LIMITATIONS.md`](../../KNOWN_LIMITATIONS.md) (T-2).

@@ -3,7 +3,7 @@
 
 # Architecture Diagrams
 
-Mermaid diagrams describing the actual v1.0 code surface. Render on GitHub natively or with any Mermaid renderer.
+Mermaid diagrams describing the actual v0.1 code surface. Render on GitHub natively or with any Mermaid renderer.
 
 | # | Diagram | What it shows |
 |---|---|---|
@@ -14,4 +14,4 @@ Mermaid diagrams describing the actual v1.0 code surface. Render on GitHub nativ
 | 5 | [`capability-flow.md`](capability-flow.md) | Token caps → method requirement → grant/deny + audit |
 | 6 | [`trust-flow.md`](trust-flow.md) | Record outcome → reputation update → score-based gate |
 
-No diagram in this directory describes a system that does not exist in the v1.0 code. If something is on the diagrams but not in the code, that's a bug.
+No diagram in this directory describes a system that does not exist in the v0.1 code. If something is on the diagrams but not in the code, that's a bug.

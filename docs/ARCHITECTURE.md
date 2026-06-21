@@ -3,7 +3,10 @@
 
 # Synapse Architecture
 
-> v1 release-candidate — daemon, SDK, vault MCP, CLI.
+> **v0.1 Alpha** — daemon, SDK, vault MCP, CLI. This document describes the
+> code that actually runs today. If a component is described here, it exists in
+> the tree; if a capability is listed as deferred, it is tracked in
+> [`ROADMAP.md`](ROADMAP.md) and [`KNOWN_LIMITATIONS.md`](../KNOWN_LIMITATIONS.md).
 
 ## Overview
 
@@ -87,11 +90,11 @@ clients for identity, vault, and trust queries. Do not confuse the two.
 
 | Module                    | Responsibility                                    |
 |---------------------------|---------------------------------------------------|
-| `main.rs`                 | Entry point; boots tracing, trust store, IPC      |
+| `main.rs`                 | Entry point; boots tracing, trust store, IPC. Banner advertises only `trust` (the only implemented subsystem). |
 | `trust/reputation.rs`     | In-memory reputation scoring (SQLite-backed persistence on roadmap) |
 | `protocol/mod.rs`         | **Internal** daemon IPC v1.0 message types + JSON codec (NOT A2A) — carries `caps: Vec<String>` per request |
-| `ipc/mod.rs`              | Unix-socket server (tokio async); enforces capability per TrustOp (v1.0.1) |
-| `security/capability.rs`  | `is_granted` + capability vocabulary; consulted by the IPC dispatcher (v1.0.1) |
+| `ipc/mod.rs`              | Unix-socket server (tokio async); enforces capability per `TrustOp` via `is_granted` |
+| `security/capability.rs`  | `is_granted` + capability vocabulary; consulted by the IPC dispatcher |
 
 ## CLI / SDK modules (Python)
 
@@ -102,7 +105,7 @@ clients for identity, vault, and trust queries. Do not confuse the two.
 | `synapse_cli/a2a_signer.py` | HMAC-SHA256 sign / verify over `payload \| timestamp` |
 | `synapse_cli/transport.py` | HTTP JSON-RPC + A2AServer (`/a2a`, `/blob/<sha>`, `/presence`) |
 | `synapse_cli/identity_resolver.py` | agent_id → endpoint URL registry |
-| `synapse_cli/trust.py` | Authoritative Python trust store (JSON, v1) |
+| `synapse_cli/trust.py` | Authoritative Python trust store (JSON, v0.1) |
 | `synapse_cli/inbox_store.py` | SQLite inbox (pending / accepted / rejected / completed) |
 | `synapse_cli/outbox_store.py` | SQLite durable send queue (WAL); exponential backoff |
 | `synapse_cli/outbox_worker.py` | Background worker draining the outbox; re-issues JWT per delivery |
@@ -131,31 +134,31 @@ clients for identity, vault, and trust queries. Do not confuse the two.
 | `bridge.ts` | stdin/stdout JSON bridge so non-Node callers (e.g. the marquee demo) drive the real vault |
 | `server.ts`, `index.ts` | MCP-style entry points |
 
-## Authoritative stores (v1)
+## Authoritative stores (v0.1)
 
 Two trust and identity stores currently exist (Rust SQLite-style + Python
-JSON). For v1 the **Python stores under
+JSON). For v0.1 the **Python stores under
 `packages/synapse-core/synapse/security/` are authoritative**: they back
-the CLI and have the broader test coverage. The Rust trust store is a
-stub for the future Rust-native rewrite. Do not assume they are
-synchronized.
+the CLI and have the broader test coverage. The Rust trust store is
+in-memory and is the future Rust-native target, not a current source of
+truth. Do not assume the two are synchronized.
 
 ## Threading model
 
 - The IPC server is async (tokio); each connection is handled on a task.
 - The trust store uses **interior mutability** (`Mutex`) so a single
   `Arc<TrustStore>` can be shared across connection tasks safely.
-- The Rust trust store is **in-memory in v1**; restart loses recorded
-  outcomes. SQLite-backed persistence is on the P1 roadmap (see below).
-  When persistence lands, SQLite connections will be wrapped in a `Mutex`
-  and long-term move to `spawn_blocking`.
 
 ## Roadmap
 
-See [ROADMAP.md](ROADMAP.md). Notable P1 follow-ups visible from this
+See [ROADMAP.md](ROADMAP.md). Notable follow-ups visible from this
 document:
 
-- Wire `security/capability.rs` into the IPC dispatcher.
 - Persist the Rust `TrustStore` to SQLite (currently in-memory).
 - Reconcile the Rust and Python trust/identity stores into a single
   authoritative path, or move the canonical stores fully into Rust.
+
+> **Done since the prior architecture snapshot:** `security/capability.rs`
+> is now wired into the IPC dispatcher — `is_granted` is consulted before
+> every `TrustOp` at `daemon/src/ipc/mod.rs`, with deny-by-default and
+> tests for missing / insufficient / wildcard capabilities.
