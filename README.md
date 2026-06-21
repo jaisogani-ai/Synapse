@@ -23,7 +23,11 @@ Trusted A2A for Claude Code, Cursor, Codex, Antigravity, VS Code — and anythin
 [![A2A](https://img.shields.io/badge/A2A-spec--compliant-purple.svg)](https://a2aproject.org)
 [![Self-hosted](https://img.shields.io/badge/deployment-self--hosted-lightgrey.svg)](#quick-start)
 
-![Synapse demo](assets/demo.gif)
+<video src="assets/demo.mp4" controls muted loop autoplay playsinline width="800">
+  Your browser does not support the HTML video tag.
+  <a href="assets/demo.mp4">Download the demo video</a>, or view the
+  <a href="assets/demo.gif">animated GIF</a>.
+</video>
 
 </div>
 
