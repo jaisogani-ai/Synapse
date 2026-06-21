@@ -1,0 +1,41 @@
+# Rust
+/target
+**/target
+Cargo.lock.orig
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+.turbo/
+dist/
+build/
+
+# Synapse local memory (T6 project tier)
+.synapse/project.db
+.synapse/*.db-journal
+
+# Local state — never commit operator state
+*.db
+*.db-journal
+.env
+.env.*
+!.env.example
+# Operator trust/identity state lives under $SYNAPSE_HOME (default ~/.synapse).
+# Exclude any copies that land in the working tree by accident.
+trust.json
+identity.json
+audit.jsonl
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/

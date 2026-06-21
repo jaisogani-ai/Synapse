@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Jai Sogani. Licensed under the Apache License, Version 2.0.
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "synapse-cli"
+version = "0.1.0"
+description = "Synapse CLI — A2A task delegation, identity, vault, and trust commands."
+authors = [{ name = "Jai Sogani" }]
+license = { text = "Apache-2.0" }
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+synapse = "synapse_cli.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["synapse_cli*"]

@@ -1,0 +1,44 @@
+{
+  "name": "@synapse/backend-architect-mcp",
+  "version": "0.1.0",
+  "description": "Synapse Backend Architect MCP (#5) — scaffold APIs, schemas, auth, queues, and microservice boundaries.",
+  "license": "Apache-2.0",
+  "author": "Jai Sogani",
+  "type": "module",
+  "bin": {
+    "synapse-backend-architect-mcp": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test test/*.test.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.7.0"
+  },
+  "keywords": [
+    "synapse",
+    "mcp",
+    "backend",
+    "scaffold",
+    "fastapi",
+    "express",
+    "nestjs",
+    "django",
+    "go"
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "name": "synapse",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Identity, trust, reputation, and secure secret handoff for AI agents.",
+  "license": "Apache-2.0",
+  "author": "Jai Sogani",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jaisogani-ai/synapse"
+  },
+  "workspaces": [
+    "packages/synapse-vault-mcp"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "daemon:build": "cargo build --release",
+    "daemon:test": "cargo test"
+  },
+  "packageManager": "npm@10.0.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "name": "@synapse/skills-mcp",
+  "version": "0.1.0",
+  "description": "Synapse Skills MCP (#2) — skill registry + invocation for any MCP client.",
+  "license": "Apache-2.0",
+  "author": "Jai Sogani",
+  "type": "module",
+  "bin": {
+    "synapse-skills-mcp": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test test/*.test.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.7.0"
+  },
+  "keywords": [
+    "synapse",
+    "mcp",
+    "skills",
+    "registry",
+    "agent"
+  ]
+}

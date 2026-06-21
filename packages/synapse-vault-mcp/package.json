@@ -1,0 +1,41 @@
+{
+  "name": "@synapse/secret-vault-mcp",
+  "version": "0.1.0",
+  "description": "Synapse Secret Vault MCP (#4) — AES-256-GCM vault; agents request credential proxies, never raw keys.",
+  "license": "Apache-2.0",
+  "author": "Jai Sogani",
+  "type": "module",
+  "bin": {
+    "synapse-secret-vault-mcp": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test test/*.test.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.7.0"
+  },
+  "keywords": [
+    "synapse",
+    "mcp",
+    "secrets",
+    "vault",
+    "aes-256-gcm",
+    "security"
+  ]
+}

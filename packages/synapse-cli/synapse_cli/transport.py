@@ -1,0 +1,174 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Jai Sogani. Licensed under the Apache License, Version 2.0.
+"""A2A transport — JSON-RPC over HTTP (per A2A spec).
+
+Uses Python stdlib only (urllib + http.server). The transport carries:
+- the JSON-RPC payload
+- the sender's id (X-A2A-Sender header)
+- the HMAC signature (X-A2A-Signature header)
+
+The receiving side verifies both before any task is touched.
+"""
+
+from __future__ import annotations
+
+import json
+import threading
+import urllib.error
+import urllib.request
+from dataclasses import dataclass
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import Any, Callable
+
+HEADER_SENDER = "X-A2A-Sender"
+HEADER_SIGNATURE = "X-A2A-Signature"
+HEADER_TIMESTAMP = "X-A2A-Timestamp"
+DEFAULT_TIMEOUT = 2.0
+#: Hard cap on inbound POST body (~12 MiB, leaves headroom for envelope overhead
+#: above the 10 MiB artifact cap in send_task.py).
+MAX_REQUEST_BYTES = 12 * 1024 * 1024
+
+
+@dataclass(frozen=True)
+class TransportError(Exception):
+    """Raised on unreachable target or transport failure."""
+
+    message: str
+
+    def __str__(self) -> str:
+        return self.message
+
+
+class TransportUnreachable(Exception):
+    """The target daemon is not reachable."""
+
+
+def post_jsonrpc(
+    url: str,
+    payload_bytes: bytes,
+    sender_id: str,
+    signature_hex: str,
+    timeout: float = DEFAULT_TIMEOUT,
+    timestamp: int | None = None,
+) -> dict[str, Any]:
+    """POST a JSON-RPC payload with sender + signature + timestamp headers.
+
+    The timestamp is part of the signed material — see ``a2a_signer.py``.
+    Raises TransportUnreachable on connection refused / timeout / DNS errors.
+    """
+    import time as _time
+    ts = int(timestamp if timestamp is not None else _time.time())
+    req = urllib.request.Request(
+        url,
+        data=payload_bytes,
+        headers={
+            "Content-Type": "application/json",
+            HEADER_SENDER: sender_id,
+            HEADER_SIGNATURE: signature_hex,
+            HEADER_TIMESTAMP: str(ts),
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            body = resp.read()
+            return json.loads(body) if body else {}
+    except (urllib.error.URLError, ConnectionError, TimeoutError, OSError) as exc:
+        raise TransportUnreachable(f"target unreachable: {exc}") from exc
+
+
+def is_reachable(url: str, timeout: float = 1.0) -> bool:
+    """Quick presence check — does the target accept TCP connections?"""
+    try:
+        req = urllib.request.Request(url, method="GET")
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return resp.status < 500
+    except urllib.error.HTTPError as e:
+        return 200 <= e.code < 500
+    except Exception:
+        return False
+
+
+# ─── Embedded HTTP receiver ────────────────────────────────────────────────
+
+
+HandlerFn = Callable[..., dict[str, Any]]
+
+
+class A2AServer:
+    """Tiny HTTP JSON-RPC receiver. Handler called for each POST."""
+
+    def __init__(self, port: int, handler: HandlerFn) -> None:
+        self._port = port
+        self._handler = handler
+        self._httpd: ThreadingHTTPServer | None = None
+        self._thread: threading.Thread | None = None
+
+    @property
+    def port(self) -> int:
+        return self._port
+
+    @property
+    def url(self) -> str:
+        return f"http://127.0.0.1:{self._port}/a2a"
+
+    def start(self) -> None:
+        outer = self
+
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, *_args: Any) -> None:  # silence stdout
+                return
+
+            def do_GET(self) -> None:
+                self.send_response(200)
+                self.send_header("Content-Type", "text/plain")
+                self.end_headers()
+                self.wfile.write(b"synapse-a2a-receiver")
+
+            def do_POST(self) -> None:
+                length = int(self.headers.get("Content-Length", "0"))
+                if length > MAX_REQUEST_BYTES:
+                    err = json.dumps({
+                        "jsonrpc": "2.0",
+                        "error": {"code": -32000, "message": f"payload too large ({length} bytes; max {MAX_REQUEST_BYTES})"},
+                        "id": None,
+                    }).encode()
+                    self.send_response(413)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Content-Length", str(len(err)))
+                    self.end_headers()
+                    self.wfile.write(err)
+                    return
+                body = self.rfile.read(length)
+                sender = self.headers.get(HEADER_SENDER, "")
+                signature = self.headers.get(HEADER_SIGNATURE, "")
+                timestamp = self.headers.get(HEADER_TIMESTAMP, "")
+                try:
+                    result = outer._handler(body, sender, signature, timestamp)
+                    payload = json.dumps(result).encode()
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Content-Length", str(len(payload)))
+                    self.end_headers()
+                    self.wfile.write(payload)
+                except Exception:  # noqa: BLE001
+                    # Never leak internal exception text on the wire.
+                    err = json.dumps(
+                        {"jsonrpc": "2.0", "error": {"code": -32000, "message": "internal error"}, "id": None}
+                    ).encode()
+                    self.send_response(500)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Content-Length", str(len(err)))
+                    self.end_headers()
+                    self.wfile.write(err)
+
+        self._httpd = ThreadingHTTPServer(("127.0.0.1", self._port), Handler)
+        self._thread = threading.Thread(target=self._httpd.serve_forever, daemon=True)
+        self._thread.start()
+
+    def stop(self) -> None:
+        if self._httpd is not None:
+            self._httpd.shutdown()
+            self._httpd.server_close()
+        if self._thread is not None:
+            self._thread.join(timeout=2.0)

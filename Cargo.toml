@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Jai Sogani. Licensed under the Apache License, Version 2.0.
+#
+# Synapse — identity, trust, reputation, and secure secret handoff for AI agents.
+# Cargo workspace root.
+
+[workspace]
+resolver = "2"
+members = ["daemon"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+authors = ["Jai Sogani"]
+repository = "https://github.com/jaisogani-ai/synapse"
+rust-version = "1.80"
+
+[workspace.dependencies]
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.31", features = ["bundled"] }
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+thiserror = "1"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Smaller, faster release binary — Synapse ships as a single ~200MB-RAM daemon.
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true
