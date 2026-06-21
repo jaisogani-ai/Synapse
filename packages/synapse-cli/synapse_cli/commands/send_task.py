@@ -39,12 +39,20 @@ from ..a2a import (
 )
 from ..a2a_signer import A2ASigner
 from ..audit import AuditEntry, AuditLog, now_iso
+from ..blob import (
+    BlobCache,
+    INLINE_THRESHOLD_BYTES,
+    MAX_BLOB_BYTES,
+    make_blob_uri,
+)
 from ..identity_resolver import IdentityResolver
+from ..outbox_store import OutboxStore
 from ..transport import TransportUnreachable, is_reachable, post_jsonrpc
 from ..trust import DEFAULT_TRUST_THRESHOLD, TrustStore
 from ..vault_client import VaultClient, is_credential_touching
 
-#: Hard cap on a single attached artifact (10 MiB). Prevents OOM on either side.
+#: Inline artifacts cap (matches A2A ``bytes`` form). Files above this size
+#: are served chunked via the blob endpoint; the cap there is :data:`MAX_BLOB_BYTES`.
 MAX_ARTIFACT_BYTES = 10 * 1024 * 1024
 
 
@@ -55,6 +63,8 @@ class SendResult:
     reason: str = ""
     serialized_payload: bytes = b""
     response: dict[str, Any] | None = None
+    #: Set when the send was queued for later delivery rather than sent now.
+    queued: bool = False
 
 
 @dataclass(frozen=True)
@@ -76,23 +86,34 @@ def send_task(
     signer: A2ASigner,
     vault: VaultClient,
     audit: AuditLog,
+    outbox: OutboxStore | None = None,
+    blob_cache: BlobCache | None = None,
+    blob_base_url: str = "",
     confirm_fn: Callable[[str], bool] | None = None,
     reachable_fn: Callable[[str], bool] | None = None,
 ) -> SendResult:
-    """Pure function — all collaborators injected so it's trivially testable."""
+    """Pure function — all collaborators injected so it's trivially testable.
+
+    If ``outbox`` is provided and the target is offline (or the live send
+    fails), the signed envelope is queued for later delivery instead of
+    returning an error. The :class:`OutboxWorker` will retry it with
+    exponential backoff.
+    """
 
     # ── 1. Resolve target endpoint ───────────────────────────────────
     endpoint = resolver.resolve(opts.target_id)
     if endpoint is None:
         return SendResult(ok=False, task_id="", reason=f"unknown agent: {opts.target_id}")
 
-    # ── 2. Presence check — fail fast, no offline queue ──────────────
+    # ── 2. Presence check — if outbox is configured, an offline target
+    #      queues; otherwise we still fail fast for backward compatibility.
     check_fn = reachable_fn or is_reachable
-    if not check_fn(endpoint.url):
+    target_online = check_fn(endpoint.url)
+    if not target_online and outbox is None:
         return SendResult(
             ok=False,
             task_id="",
-            reason=f"target unreachable: {endpoint.url} (no offline queue in v1)",
+            reason=f"target unreachable: {endpoint.url} (no outbox configured)",
         )
 
     # ── 3. Reputation check ──────────────────────────────────────────
@@ -144,25 +165,49 @@ def send_task(
     artifacts: tuple[Artifact, ...] = ()
     if opts.file_path is not None:
         size = opts.file_path.stat().st_size
-        if size > MAX_ARTIFACT_BYTES:
+        if size > MAX_BLOB_BYTES:
             return SendResult(
                 ok=False,
                 task_id="",
-                reason=f"file too large: {size} bytes (max {MAX_ARTIFACT_BYTES})",
+                reason=f"file too large: {size} bytes (max {MAX_BLOB_BYTES})",
             )
-        file_bytes = opts.file_path.read_bytes()
         mime, _ = mimetypes.guess_type(opts.file_path.name)
+
+        if size <= INLINE_THRESHOLD_BYTES:
+            # Small file: inline base64 (A2A FilePart.bytes form).
+            file_bytes = opts.file_path.read_bytes()
+            file_part = FilePart(
+                name=opts.file_path.name,
+                mime_type=mime or "application/octet-stream",
+                bytes=base64.b64encode(file_bytes).decode("ascii"),
+            )
+        else:
+            # Large file: blob upload (A2A FilePart.uri form).
+            # Requires the sender to have a blob_cache + blob_base_url so the
+            # receiver can fetch chunks.
+            if blob_cache is None or not blob_base_url:
+                return SendResult(
+                    ok=False,
+                    task_id="",
+                    reason=(
+                        f"file is {size} bytes (> {INLINE_THRESHOLD_BYTES}) "
+                        "and requires a configured blob_cache + blob_base_url"
+                    ),
+                )
+            sha, real_size = blob_cache.put(opts.file_path)
+            file_part = FilePart(
+                name=opts.file_path.name,
+                mime_type=mime or "application/octet-stream",
+                uri=make_blob_uri(opts.sender_id, sha),
+                sha256=sha,
+                size=real_size,
+            )
+
         artifacts = (
             Artifact(
                 artifact_id=str(opts.file_path.name),
                 name=opts.file_path.name,
-                parts=(
-                    FilePart(
-                        name=opts.file_path.name,
-                        mime_type=mime or "application/octet-stream",
-                        bytes=base64.b64encode(file_bytes).decode("ascii"),
-                    ),
-                ),
+                parts=(file_part,),
             ),
         )
 
@@ -185,6 +230,38 @@ def send_task(
     # ── 7. Sign the full payload (timestamp bound into signature) ────
     signed = signer.sign(opts.sender_id, payload)
 
+    # ── 7a. Outbox path — if target was offline at the presence check,
+    #         persist the signed envelope and return queued. The worker
+    #         will retry until the deadline or MAX_ATTEMPTS.
+    if not target_online and outbox is not None:
+        outbox.enqueue(
+            task_id=task_id,
+            target_id=opts.target_id,
+            endpoint_url=endpoint.url,
+            sender_id=opts.sender_id,
+            payload=payload,
+            signature_hex=signed.signature_hex,
+            sign_timestamp=signed.timestamp,
+        )
+        audit.append(
+            AuditEntry(
+                action="outbox_enqueued",
+                sender=opts.sender_id,
+                receiver=opts.target_id,
+                task_id=task_id,
+                timestamp=now_iso(),
+                signature_hash=signed.signature_hex[:16],
+                detail="reason=target_offline",
+            )
+        )
+        return SendResult(
+            ok=True,
+            task_id=task_id,
+            reason="queued: target offline",
+            serialized_payload=payload,
+            queued=True,
+        )
+
     # ── 8. Send ──────────────────────────────────────────────────────
     try:
         response = post_jsonrpc(
@@ -192,6 +269,34 @@ def send_task(
             timestamp=signed.timestamp,
         )
     except TransportUnreachable as exc:
+        if outbox is not None:
+            outbox.enqueue(
+                task_id=task_id,
+                target_id=opts.target_id,
+                endpoint_url=endpoint.url,
+                sender_id=opts.sender_id,
+                payload=payload,
+                signature_hex=signed.signature_hex,
+                sign_timestamp=signed.timestamp,
+            )
+            audit.append(
+                AuditEntry(
+                    action="outbox_enqueued",
+                    sender=opts.sender_id,
+                    receiver=opts.target_id,
+                    task_id=task_id,
+                    timestamp=now_iso(),
+                    signature_hash=signed.signature_hex[:16],
+                    detail=f"reason=transport_failure error={exc}",
+                )
+            )
+            return SendResult(
+                ok=True,
+                task_id=task_id,
+                reason=f"queued: {exc}",
+                serialized_payload=payload,
+                queued=True,
+            )
         audit.append(
             AuditEntry(
                 action="send_task_failed",

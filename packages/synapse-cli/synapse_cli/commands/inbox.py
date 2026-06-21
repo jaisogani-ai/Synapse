@@ -62,6 +62,80 @@ def list_inbox(
 
 
 @dataclass(frozen=True)
+class ReviewResult:
+    """Full, un-redacted view of a received task — for the operator to read
+    before calling ``accept`` or ``reject``."""
+
+    ok: bool
+    task_id: str
+    sender: str
+    sender_score: float
+    status: str
+    received_at: str
+    text: str = ""
+    attachments: tuple[dict, ...] = ()
+    reason: str = ""
+
+
+def review_task(task_id: str, store: InboxStore) -> ReviewResult:
+    """Return the full contents of an inbox row for human review.
+
+    Reveals text and attachment metadata even for low-rep senders — by the
+    time the operator runs ``synapse inbox review`` they have explicitly
+    asked to see it.
+    """
+    row = store.get(task_id)
+    if row is None:
+        return ReviewResult(
+            ok=False, task_id=task_id, sender="", sender_score=0.0,
+            status="", received_at="", reason="task not found",
+        )
+    try:
+        task = json.loads(row.task_json)
+    except json.JSONDecodeError:
+        return ReviewResult(
+            ok=False, task_id=task_id, sender=row.sender,
+            sender_score=row.sender_score, status=row.status,
+            received_at=row.received_at, reason="invalid task json",
+        )
+
+    text_parts: list[str] = []
+    for message in task.get("history") or []:
+        for part in message.get("parts") or []:
+            if part.get("kind") == "text":
+                text_parts.append(str(part.get("text", "")))
+
+    attachments: list[dict] = []
+    for artifact in task.get("artifacts") or []:
+        for part in artifact.get("parts") or []:
+            if part.get("kind") != "file":
+                continue
+            file_obj = part.get("file") or {}
+            entry = {
+                "name": file_obj.get("name", ""),
+                "mimeType": file_obj.get("mimeType", ""),
+            }
+            if file_obj.get("uri"):
+                entry["uri"] = file_obj["uri"]
+                entry["sha256"] = file_obj.get("sha256", "")
+                entry["size"] = file_obj.get("size", 0)
+            elif file_obj.get("bytes"):
+                entry["inline_bytes"] = len(file_obj["bytes"])
+            attachments.append(entry)
+
+    return ReviewResult(
+        ok=True,
+        task_id=task_id,
+        sender=row.sender,
+        sender_score=row.sender_score,
+        status=row.status,
+        received_at=row.received_at,
+        text="\n".join(text_parts),
+        attachments=tuple(attachments),
+    )
+
+
+@dataclass(frozen=True)
 class AcceptResult:
     ok: bool
     task_id: str

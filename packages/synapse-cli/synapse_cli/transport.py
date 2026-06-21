@@ -24,8 +24,8 @@ HEADER_SENDER = "X-A2A-Sender"
 HEADER_SIGNATURE = "X-A2A-Signature"
 HEADER_TIMESTAMP = "X-A2A-Timestamp"
 DEFAULT_TIMEOUT = 2.0
-#: Hard cap on inbound POST body (~12 MiB, leaves headroom for envelope overhead
-#: above the 10 MiB artifact cap in send_task.py).
+#: Hard cap on inbound POST body (~12 MiB). Larger artifacts use the blob
+#: endpoint with chunked transfer instead of inline base64.
 MAX_REQUEST_BYTES = 12 * 1024 * 1024
 
 
@@ -96,11 +96,28 @@ HandlerFn = Callable[..., dict[str, Any]]
 
 
 class A2AServer:
-    """Tiny HTTP JSON-RPC receiver. Handler called for each POST."""
+    """HTTP JSON-RPC receiver with blob + presence endpoints.
 
-    def __init__(self, port: int, handler: HandlerFn) -> None:
+    The server exposes:
+
+    * ``POST /a2a``          A2A JSON-RPC envelope (signed, MAC-verified).
+    * ``GET  /blob/<sha>``   Chunked, range-aware blob download (large files).
+    * ``GET  /presence``     ``{"status": "online|busy|offline"}`` snapshot.
+    * ``GET  /``             Liveness probe (``synapse-a2a-receiver``).
+    """
+
+    def __init__(
+        self,
+        port: int,
+        handler: HandlerFn,
+        *,
+        blob_cache: "object | None" = None,
+        presence_fn: "callable | None" = None,
+    ) -> None:
         self._port = port
         self._handler = handler
+        self._blob_cache = blob_cache
+        self._presence_fn = presence_fn
         self._httpd: ThreadingHTTPServer | None = None
         self._thread: threading.Thread | None = None
 
@@ -112,6 +129,9 @@ class A2AServer:
     def url(self) -> str:
         return f"http://127.0.0.1:{self._port}/a2a"
 
+    def blob_url(self, sha256_hex: str) -> str:
+        return f"http://127.0.0.1:{self._port}/blob/{sha256_hex}"
+
     def start(self) -> None:
         outer = self
 
@@ -120,6 +140,30 @@ class A2AServer:
                 return
 
             def do_GET(self) -> None:
+                if self.path.startswith("/blob/") and outer._blob_cache is not None:
+                    from .blob import serve_blob  # local import to avoid cycle
+                    sha = self.path[len("/blob/"):]
+                    serve_blob(
+                        outer._blob_cache,
+                        sha,
+                        self.headers.get("Range"),
+                        write_status=lambda s: self.send_response(s),
+                        write_header=lambda k, v: self.send_header(k, v),
+                        end_headers=lambda: self.end_headers(),
+                        write_body=lambda b: self.wfile.write(b),
+                    )
+                    return
+                if self.path == "/presence":
+                    status = (
+                        outer._presence_fn() if outer._presence_fn else "online"
+                    )
+                    body = json.dumps({"status": status}).encode()
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+                    return
                 self.send_response(200)
                 self.send_header("Content-Type", "text/plain")
                 self.end_headers()

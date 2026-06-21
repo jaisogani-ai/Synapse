@@ -43,20 +43,34 @@ class TextPart:
 
 @dataclass(frozen=True)
 class FilePart:
+    """A2A ``FilePart``. Carries either inline base64 ``bytes`` or a ``uri``
+    pointing at a chunk-served blob — both are permitted by the A2A spec.
+
+    For files at or below 256 KiB we inline ``bytes``. Larger files use the
+    ``uri`` form, pointing the receiver at the sender's blob endpoint where
+    they fetch with HTTP ``Range`` requests and verify ``sha256`` end-to-end.
+    """
+
     kind: str = PartKind.FILE.value
     name: str = ""
     mime_type: str = "application/octet-stream"
-    bytes: str = ""  # base64-encoded content per A2A spec
+    bytes: str = ""  # base64-encoded content per A2A spec (inline form)
+    uri: str = ""  # synapse+blob://<sender>/<sha256> (referenced form)
+    sha256: str = ""  # required when uri is set; verified by receiver
+    size: int = 0  # required when uri is set; verified by receiver
 
     def to_dict(self) -> dict[str, Any]:
-        return {
-            "kind": self.kind,
-            "file": {
-                "name": self.name,
-                "mimeType": self.mime_type,
-                "bytes": self.bytes,
-            },
+        file_obj: dict[str, Any] = {
+            "name": self.name,
+            "mimeType": self.mime_type,
         }
+        if self.uri:
+            file_obj["uri"] = self.uri
+            file_obj["sha256"] = self.sha256
+            file_obj["size"] = self.size
+        else:
+            file_obj["bytes"] = self.bytes
+        return {"kind": self.kind, "file": file_obj}
 
 
 @dataclass(frozen=True)
