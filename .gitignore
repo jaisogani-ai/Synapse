@@ -34,6 +34,13 @@ trust.json
 identity.json
 audit.jsonl
 
+# Large demo source videos — these get attached to GitHub Releases rather
+# than committed (per-clone bandwidth + git history bloat). The derived
+# GIFs in assets/ ARE committed because the README embeds them.
+assets/*.mp4
+assets/*.mov
+assets/*.webm
+
 # OS / editor
 .DS_Store
 *.swp
