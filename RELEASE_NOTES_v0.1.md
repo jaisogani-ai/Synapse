@@ -38,6 +38,7 @@ demonstrated. Expect rough edges. Known gaps are documented in
 | **Access review** | `synapse audit review` summarizes the audit log by sender/receiver/action. |
 | **Device identity (DID-style)** | `did:synapse:<agent_id>[#<device_id>]` identifier format. |
 | **Continuous Verifier** | Labelled three-gate orchestrator; tests pin gate order and short-circuit semantics. |
+| **Opt-in mTLS** | Self-signed mutual TLS. `pip install synapse[mtls]` + `synapse identity gen-cert <agent>` + `SYNAPSE_MTLS=1` enables it. HTTP remains the default. 9 tests cover the real TLS handshake. |
 
 ## Tests
 

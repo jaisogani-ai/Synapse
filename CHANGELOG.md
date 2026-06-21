@@ -34,6 +34,7 @@ First public release.
 - **Access review** — `synapse audit review` summarizes hash-chained log by sender/receiver/action with optional time window (`access_review.py`).
 - **Device identity** — stable `did:synapse:<agent_id>[#<device_id>]` identifier format (`device_identity.py`).
 - **Continuous Verifier** — labelled three-gate orchestrator; tests pin gate order + short-circuit (`continuous_verifier.py`).
+- **Opt-in mTLS** — self-signed mutual TLS at the A2A transport. `synapse identity gen-cert <agent>` emits cert + key; `A2AServer(ssl_context=...)` wraps the receiver; trust dir = drop the peer's `.crt` into `~/.synapse/certs/`. HTTP remains the default; mTLS is opt-in via constructor arg or `SYNAPSE_MTLS=1`. Optional extra: `pip install synapse[mtls]`. (`mtls.py`)
 - **5 adapters** — Claude Code, Cursor, Codex, VS Code, Antigravity (`packages/adapters/`).
 - **3 demos** — `vps-handoff-no-raw-keys`, `cross-device-task-delegation`, `malicious-sender-rejection`.
 - **CLI** — `send-task`, `inbox list|review|accept|reject`, `outbox list|retry|flush|purge`, `presence get|set|list`.

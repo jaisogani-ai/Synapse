@@ -13,6 +13,7 @@ The receiving side verifies both before any task is touched.
 from __future__ import annotations
 
 import json
+import ssl
 import threading
 import urllib.error
 import urllib.request
@@ -54,6 +55,7 @@ def post_jsonrpc(
     timeout: float = DEFAULT_TIMEOUT,
     timestamp: int | None = None,
     token: str = "",
+    ssl_context: "ssl.SSLContext | None" = None,
 ) -> dict[str, Any]:
     """POST a JSON-RPC payload with sender + signature + timestamp + token headers.
 
@@ -79,7 +81,12 @@ def post_jsonrpc(
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        opener = urllib.request.urlopen
+        if ssl_context is not None and url.lower().startswith("https://"):
+            with opener(req, timeout=timeout, context=ssl_context) as resp:
+                body = resp.read()
+                return json.loads(body) if body else {}
+        with opener(req, timeout=timeout) as resp:
             body = resp.read()
             return json.loads(body) if body else {}
     except (urllib.error.URLError, ConnectionError, TimeoutError, OSError) as exc:
@@ -122,11 +129,13 @@ class A2AServer:
         *,
         blob_cache: "object | None" = None,
         presence_fn: "callable | None" = None,
+        ssl_context: ssl.SSLContext | None = None,
     ) -> None:
         self._port = port
         self._handler = handler
         self._blob_cache = blob_cache
         self._presence_fn = presence_fn
+        self._ssl_context = ssl_context
         self._httpd: ThreadingHTTPServer | None = None
         self._thread: threading.Thread | None = None
 
@@ -135,11 +144,15 @@ class A2AServer:
         return self._port
 
     @property
+    def scheme(self) -> str:
+        return "https" if self._ssl_context is not None else "http"
+
+    @property
     def url(self) -> str:
-        return f"http://127.0.0.1:{self._port}/a2a"
+        return f"{self.scheme}://127.0.0.1:{self._port}/a2a"
 
     def blob_url(self, sha256_hex: str) -> str:
-        return f"http://127.0.0.1:{self._port}/blob/{sha256_hex}"
+        return f"{self.scheme}://127.0.0.1:{self._port}/blob/{sha256_hex}"
 
     def start(self) -> None:
         outer = self
@@ -217,6 +230,12 @@ class A2AServer:
                     self.wfile.write(err)
 
         self._httpd = ThreadingHTTPServer(("127.0.0.1", self._port), Handler)
+        if self._ssl_context is not None:
+            # Wrap the listening socket — turns the HTTPServer into an HTTPS server
+            # that requires + verifies a client cert per the SSL context.
+            self._httpd.socket = self._ssl_context.wrap_socket(
+                self._httpd.socket, server_side=True
+            )
         self._thread = threading.Thread(target=self._httpd.serve_forever, daemon=True)
         self._thread.start()
 

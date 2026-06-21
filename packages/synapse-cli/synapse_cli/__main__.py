@@ -201,6 +201,44 @@ def _cmd_audit(args: argparse.Namespace) -> int:
     return 1
 
 
+def _cmd_identity(args: argparse.Namespace) -> int:
+    """Identity management — mTLS cert generation in v0.1.0-alpha."""
+    home = _home()
+    home.mkdir(parents=True, exist_ok=True)
+
+    if args.subcmd == "gen-cert":
+        if not args.agent_id:
+            print("error: agent_id required for gen-cert", file=sys.stderr)
+            return 2
+        from .mtls import generate_self_signed_cert  # local — keeps stdlib hot path light
+        cert_dir = home / "certs"
+        bundle = generate_self_signed_cert(
+            args.agent_id,
+            cert_dir,
+            validity_days=args.validity_days,
+        )
+        print(json.dumps({
+            "agent_id": bundle.agent_id,
+            "cert_path": str(bundle.cert_path),
+            "key_path": str(bundle.key_path),
+            "validity_days": args.validity_days,
+            "note": (
+                "copy the cert (NOT the key) to each peer's "
+                f"{cert_dir.name}/ directory to authorize them"
+            ),
+        }, indent=2, sort_keys=True))
+        return 0
+
+    if args.subcmd == "list-certs":
+        from .mtls import load_trust_dir
+        cert_dir = home / "certs"
+        certs = [str(p) for p in load_trust_dir(cert_dir)]
+        print(json.dumps({"cert_dir": str(cert_dir), "certs": certs}, indent=2, sort_keys=True))
+        return 0
+
+    return 1
+
+
 def _cmd_quarantine(args: argparse.Namespace) -> int:
     home = _home()
     home.mkdir(parents=True, exist_ok=True)
@@ -444,6 +482,25 @@ def main() -> int:
         "--until", default="", help="ISO timestamp upper bound for 'review'"
     )
     audit_cmd.set_defaults(handler=_cmd_audit)
+
+    identity_cmd = subs.add_parser(
+        "identity",
+        help="Generate or list mTLS certificates",
+    )
+    identity_cmd.add_argument(
+        "subcmd", nargs="?", default="list-certs", choices=["gen-cert", "list-certs"]
+    )
+    identity_cmd.add_argument(
+        "agent_id", nargs="?", help="agent_id for gen-cert"
+    )
+    identity_cmd.add_argument(
+        "--validity-days",
+        dest="validity_days",
+        type=int,
+        default=365,
+        help="cert validity in days (default 365)",
+    )
+    identity_cmd.set_defaults(handler=_cmd_identity)
 
     quarantine_cmd = subs.add_parser(
         "quarantine",
