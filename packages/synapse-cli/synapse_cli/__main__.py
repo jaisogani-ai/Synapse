@@ -141,7 +141,7 @@ def _cmd_presence(args: argparse.Namespace) -> int:
 
 def _cmd_outbox(args: argparse.Namespace) -> int:
     home = _home()
-    _, _, _, _, audit, _, outbox, _ = _build_state(home)
+    _, _, signer, _, audit, _, outbox, _ = _build_state(home)
 
     if args.subcmd == "list":
         states = (
@@ -174,7 +174,9 @@ def _cmd_outbox(args: argparse.Namespace) -> int:
         return 0 if ok else 2
 
     if args.subcmd == "flush":
-        worker = OutboxWorker(outbox, audit)
+        worker = OutboxWorker(
+            outbox, audit, network=signer._network  # noqa: SLF001
+        )
         processed = worker.tick()
         print(json.dumps({"processed": processed}, sort_keys=True))
         return 0

@@ -111,6 +111,13 @@ pub enum Body {
 }
 
 /// A Synapse Protocol message envelope.
+///
+/// The optional `caps` field carries the sender's capability set for this
+/// request. The IPC dispatcher consults it against a per-op required
+/// capability table before executing trust mutations. Older messages that
+/// omit the field default to an empty set — those requests are denied for
+/// any op that requires a capability (defence in depth on the local
+/// Unix socket).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SynapseMessage {
     /// Unique message id (UUID v4).
@@ -121,6 +128,9 @@ pub struct SynapseMessage {
     pub timestamp: DateTime<Utc>,
     /// Sender identity (agent id, MCP name, or client id).
     pub sender: String,
+    /// Capability set asserted by the sender for this request.
+    #[serde(default)]
+    pub caps: Vec<String>,
     /// The message body.
     pub body: Body,
 }
@@ -133,6 +143,7 @@ impl SynapseMessage {
             version: PROTOCOL_VERSION.to_string(),
             timestamp: Utc::now(),
             sender: sender.into(),
+            caps: Vec::new(),
             body,
         }
     }
@@ -140,6 +151,17 @@ impl SynapseMessage {
     /// Convenience constructor for a request message.
     pub fn request(sender: impl Into<String>, request: RequestBody) -> Self {
         Self::new(sender, Body::Request(request))
+    }
+
+    /// Convenience constructor for a request that asserts a capability set.
+    pub fn request_with_caps(
+        sender: impl Into<String>,
+        caps: impl IntoIterator<Item = String>,
+        request: RequestBody,
+    ) -> Self {
+        let mut msg = Self::request(sender, request);
+        msg.caps = caps.into_iter().collect();
+        msg
     }
 
     /// Convenience constructor for a response message.
@@ -203,6 +225,8 @@ pub mod error_code {
     pub const TRUST_ERROR: &str = "trust_error";
     /// The requested operation is not implemented in this phase.
     pub const NOT_IMPLEMENTED: &str = "not_implemented";
+    /// The sender's capability set does not authorise this operation.
+    pub const CAPABILITY_DENIED: &str = "capability_denied";
 }
 
 #[cfg(test)]

@@ -70,8 +70,11 @@ async fn trust_record_and_score_over_real_socket() {
 
     let mut stream = UnixStream::connect(&path).await.expect("connect");
 
-    let record = SynapseMessage::request(
+    let caps = vec!["trust.read".to_string(), "trust.write".to_string()];
+
+    let record = SynapseMessage::request_with_caps(
         "client",
+        caps.clone(),
         RequestBody::Trust(TrustOp::RecordOutcome {
             agent_id: "sentinel".into(),
             decision_id: "d1".into(),
@@ -84,8 +87,9 @@ async fn trust_record_and_score_over_real_socket() {
     let record_resp = exchange(&mut stream, &record).await;
     assert!(matches!(record_resp.body, Body::Response(ResponseBody::Ok)));
 
-    let score = SynapseMessage::request(
+    let score = SynapseMessage::request_with_caps(
         "client",
+        caps,
         RequestBody::Trust(TrustOp::GetScore {
             agent_id: "sentinel".into(),
             domain: "security".into(),

@@ -15,8 +15,11 @@ from __future__ import annotations
 
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable
+
+from synapse.security.capabilities import DEFAULT_A2A_CAPABILITIES
+from synapse.security.zero_trust import ZeroTrustNetwork
 
 from .audit import AuditEntry, AuditLog, now_iso
 from .outbox_store import OutboxRow, OutboxStore
@@ -25,7 +28,8 @@ from .transport import TransportUnreachable, post_jsonrpc
 #: How long the worker sleeps between empty polls.
 DEFAULT_POLL_SECONDS = 1.0
 
-DeliverFn = Callable[[str, bytes, str, str, int], dict]
+#: Signature: ``(url, payload, sender_id, signature_hex, timestamp, token) -> dict``.
+DeliverFn = Callable[[str, bytes, str, str, int, str], dict]
 
 
 def _default_deliver(
@@ -34,18 +38,26 @@ def _default_deliver(
     sender_id: str,
     signature_hex: str,
     timestamp: int,
+    token: str,
 ) -> dict:
     return post_jsonrpc(
-        url, payload, sender_id, signature_hex, timestamp=timestamp
+        url, payload, sender_id, signature_hex, timestamp=timestamp, token=token,
     )
 
 
 @dataclass
 class OutboxWorker:
-    """Polls the outbox and delivers due rows. Stop with :meth:`stop`."""
+    """Polls the outbox and delivers due rows. Stop with :meth:`stop`.
+
+    The worker re-issues a fresh JWT for each delivery so a row that sits
+    in the queue longer than the token TTL still arrives with a valid
+    capability assertion. Capability set is :data:`DEFAULT_A2A_CAPABILITIES`.
+    """
 
     store: OutboxStore
     audit: AuditLog
+    network: ZeroTrustNetwork | None = None
+    capabilities: tuple[str, ...] = field(default=DEFAULT_A2A_CAPABILITIES)
     poll_seconds: float = DEFAULT_POLL_SECONDS
     deliver: DeliverFn = _default_deliver
 
@@ -83,6 +95,11 @@ class OutboxWorker:
                 self._stop.wait(timeout=self.poll_seconds)
 
     def _attempt(self, row: OutboxRow) -> None:
+        token = ""
+        if self.network is not None and self.network.has_identity(row.sender_id):
+            token = self.network.issue_token(
+                row.sender_id, capabilities=list(self.capabilities)
+            )
         try:
             self.deliver(
                 row.endpoint_url,
@@ -90,6 +107,7 @@ class OutboxWorker:
                 row.sender_id,
                 row.signature_hex,
                 row.sign_timestamp,
+                token,
             )
         except TransportUnreachable as exc:
             new_state, _ = self.store.mark_failed(

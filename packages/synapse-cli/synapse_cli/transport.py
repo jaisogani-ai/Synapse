@@ -23,6 +23,9 @@ from typing import Any, Callable
 HEADER_SENDER = "X-A2A-Sender"
 HEADER_SIGNATURE = "X-A2A-Signature"
 HEADER_TIMESTAMP = "X-A2A-Timestamp"
+#: Signed JWT carrying the sender's capability set. Verified by the receiver
+#: against a method->capability table; missing token → request denied.
+HEADER_TOKEN = "X-A2A-Token"
 DEFAULT_TIMEOUT = 2.0
 #: Hard cap on inbound POST body (~12 MiB). Larger artifacts use the blob
 #: endpoint with chunked transfer instead of inline base64.
@@ -50,23 +53,29 @@ def post_jsonrpc(
     signature_hex: str,
     timeout: float = DEFAULT_TIMEOUT,
     timestamp: int | None = None,
+    token: str = "",
 ) -> dict[str, Any]:
-    """POST a JSON-RPC payload with sender + signature + timestamp headers.
+    """POST a JSON-RPC payload with sender + signature + timestamp + token headers.
 
     The timestamp is part of the signed material — see ``a2a_signer.py``.
+    The ``token`` carries the sender's capability set; the receiver
+    rejects the request if the token's caps don't authorise the RPC method.
     Raises TransportUnreachable on connection refused / timeout / DNS errors.
     """
     import time as _time
     ts = int(timestamp if timestamp is not None else _time.time())
+    headers = {
+        "Content-Type": "application/json",
+        HEADER_SENDER: sender_id,
+        HEADER_SIGNATURE: signature_hex,
+        HEADER_TIMESTAMP: str(ts),
+    }
+    if token:
+        headers[HEADER_TOKEN] = token
     req = urllib.request.Request(
         url,
         data=payload_bytes,
-        headers={
-            "Content-Type": "application/json",
-            HEADER_SENDER: sender_id,
-            HEADER_SIGNATURE: signature_hex,
-            HEADER_TIMESTAMP: str(ts),
-        },
+        headers=headers,
         method="POST",
     )
     try:
@@ -187,8 +196,9 @@ class A2AServer:
                 sender = self.headers.get(HEADER_SENDER, "")
                 signature = self.headers.get(HEADER_SIGNATURE, "")
                 timestamp = self.headers.get(HEADER_TIMESTAMP, "")
+                token = self.headers.get(HEADER_TOKEN, "")
                 try:
-                    result = outer._handler(body, sender, signature, timestamp)
+                    result = outer._handler(body, sender, signature, timestamp, token)
                     payload = json.dumps(result).encode()
                     self.send_response(200)
                     self.send_header("Content-Type", "application/json")

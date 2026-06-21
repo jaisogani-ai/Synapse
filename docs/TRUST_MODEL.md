@@ -96,23 +96,50 @@ A request that requires a capability not present in the agent's token is
 rejected with a clear error. Capabilities are checked after signature
 verification but before any side effects.
 
-**Implementation:** `packages/synapse-core/synapse/security/capabilities.py`
+### How Gate 3 is wired (v1.0)
 
-> ### ⚠️ v1 limitation: Rust-daemon enforcement is not wired in
->
-> `daemon/src/security/capability.rs` is implemented and unit-tested, but
-> it is **not yet consulted by the IPC dispatcher** in `daemon/src/ipc/mod.rs`.
-> In v1, capability enforcement is performed by the Python SDK at the agent
-> side and by application code that calls the daemon. The daemon itself
-> does not currently reject IPC requests based on capability.
->
-> **Do not rely on Rust-side capability enforcement for untrusted multi-user
-> deployments in v1.** Treat the daemon's Unix socket as trusted to all
-> processes that can connect to it (i.e. local users on the host).
->
-> Wiring `capability.rs` into the IPC dispatcher requires per-request caller
-> authentication on the Unix socket, which is on the P1 follow-up list
-> (see [ROADMAP.md](ROADMAP.md)).
+**A2A receiver — `packages/synapse-cli/synapse_cli/receiver.py`**
+
+Every inbound JSON-RPC envelope carries a sender-issued JWT in the
+`X-A2A-Token` header. The receiver consults
+`METHOD_REQUIRED_CAPABILITY` for the requested method and calls
+`ZeroTrustNetwork.verify_request(token, required_capability, payload, signature)`.
+Missing token, expired token, subject ≠ HMAC sender, or insufficient `caps` →
+the request is rejected with a `capability denied: <reason>` error and a
+`reject_capability` audit entry. Method → required capability:
+
+| A2A method        | Required capability  |
+|-------------------|----------------------|
+| `message/send`    | `a2a.send_task`      |
+| `tasks/result`    | `a2a.send_result`    |
+| `tasks/get`       | `a2a.read_status`    |
+
+**Rust daemon IPC — `daemon/src/ipc/mod.rs`**
+
+The `SynapseMessage` envelope now carries a `caps: Vec<String>` field.
+Every `TrustOp` requires a capability, checked by `is_granted()` from
+`daemon/src/security/capability.rs` before any mutation. Old envelopes that
+omit `caps` deserialize to an empty vec — those requests are denied for any
+op that requires a capability. Trust op → required capability:
+
+| TrustOp variant  | Required capability |
+|------------------|---------------------|
+| `RecordOutcome`  | `trust.write`       |
+| `GetScore`       | `trust.read`        |
+| `ShouldTrust`    | `trust.read`        |
+| `RankAgents`     | `trust.read`        |
+
+Wildcard grants work as documented: `"trust.*"` allows every trust op,
+`"*"` allows everything (intended for the daemon's own self-signed
+requests). `Ping` and `Health` are not capability-gated.
+
+**Implementation:**
+- Capability vocabulary: `packages/synapse-core/synapse/security/capabilities.py`
+  (canonical) and `daemon/src/security/capability.rs` (Rust mirror; strings must stay in sync).
+- A2A enforcement: `packages/synapse-cli/synapse_cli/receiver.py` —
+  `METHOD_REQUIRED_CAPABILITY` table + `_check_capability` helper.
+- IPC enforcement: `daemon/src/ipc/mod.rs` — `required_capability_for(&op)` +
+  `is_granted()` check at the top of `handle_request`.
 
 ## Vault Integration
 

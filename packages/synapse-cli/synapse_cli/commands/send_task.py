@@ -37,6 +37,8 @@ from ..a2a import (
     new_context_id,
     new_task_id,
 )
+from synapse.security.capabilities import DEFAULT_A2A_CAPABILITIES
+
 from ..a2a_signer import A2ASigner
 from ..audit import AuditEntry, AuditLog, now_iso
 from ..blob import (
@@ -230,6 +232,13 @@ def send_task(
     # ── 7. Sign the full payload (timestamp bound into signature) ────
     signed = signer.sign(opts.sender_id, payload)
 
+    # ── 7-a. Issue a short-lived JWT carrying the sender's default A2A
+    #         capabilities. The receiver consults the ``caps`` claim before
+    #         dispatching the method.
+    token = signer._network.issue_token(  # noqa: SLF001 — same-network access
+        opts.sender_id, capabilities=list(DEFAULT_A2A_CAPABILITIES),
+    )
+
     # ── 7a. Outbox path — if target was offline at the presence check,
     #         persist the signed envelope and return queued. The worker
     #         will retry until the deadline or MAX_ATTEMPTS.
@@ -266,7 +275,7 @@ def send_task(
     try:
         response = post_jsonrpc(
             endpoint.url, payload, opts.sender_id, signed.signature_hex,
-            timestamp=signed.timestamp,
+            timestamp=signed.timestamp, token=token,
         )
     except TransportUnreachable as exc:
         if outbox is not None:

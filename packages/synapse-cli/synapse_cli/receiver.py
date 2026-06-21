@@ -15,6 +15,8 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
+from synapse.security.zero_trust import ZeroTrustNetwork
+
 from .a2a import (
     JsonRpcResponse,
     METHOD_MESSAGE_SEND,
@@ -26,20 +28,44 @@ from .audit import AuditEntry, AuditLog, now_iso
 from .inbox_store import DuplicateTaskError, InboxStore
 from .trust import TrustStore
 
+#: Required capability per A2A method. The receiver consults this table for
+#: every inbound JSON-RPC and rejects requests whose token does not grant the
+#: required capability (Gate 3 of the Trust Model).
+METHOD_REQUIRED_CAPABILITY: dict[str, str] = {
+    METHOD_MESSAGE_SEND: "a2a.send_task",
+    METHOD_TASKS_RESULT: "a2a.send_result",
+    METHOD_TASKS_GET: "a2a.read_status",
+}
+
 
 @dataclass
 class ReceivingDaemon:
-    """Stateful receiver that handles signed A2A JSON-RPC requests."""
+    """Stateful receiver that handles signed A2A JSON-RPC requests.
+
+    Gate 3 (capability enforcement) is wired in here: every dispatched method
+    consults :data:`METHOD_REQUIRED_CAPABILITY` and rejects the request if the
+    sender's signed token does not grant the required capability. Set
+    ``enforce_capabilities=False`` for tests that exercise the bare A2A path
+    against a legacy peer (this fallback never ships in the CLI default).
+    """
 
     receiver_id: str
     signer: A2ASigner
     trust: TrustStore
     inbox: InboxStore
     audit: AuditLog
+    network: ZeroTrustNetwork | None = None
+    enforce_capabilities: bool = True
+
+    def __post_init__(self) -> None:
+        # If no network was injected, reuse the signer's. They share secrets
+        # so a token issued by one verifies on the other.
+        if self.network is None:
+            self.network = self.signer._network  # noqa: SLF001 — intentional
 
     def handle_request(
         self, body: bytes, sender_id: str, signature_hex: str,
-        timestamp: str = "",
+        timestamp: str = "", token: str = "",
     ) -> dict[str, Any]:
         # ── 1. Reject unsigned / missing-sender messages immediately ──
         if not sender_id or not signature_hex:
@@ -79,7 +105,30 @@ class ReceivingDaemon:
             self._audit_reject("malformed_params", sender_id, "")
             return self._error_response("params must be a JSON object", req_id)
 
-        # ── 4. Dispatch ──
+        # ── 4. Capability gate (Trust Model Gate 3) ──
+        if self.enforce_capabilities:
+            required = METHOD_REQUIRED_CAPABILITY.get(method)
+            if required is not None:
+                cap_ok, cap_reason = self._check_capability(
+                    token, sender_id, required
+                )
+                if not cap_ok:
+                    self.audit.append(
+                        AuditEntry(
+                            action="reject_capability",
+                            sender=sender_id,
+                            receiver=self.receiver_id,
+                            task_id="<no-task>",
+                            timestamp=now_iso(),
+                            approval="rejected",
+                            detail=f"method={method} required={required} reason={cap_reason}",
+                        )
+                    )
+                    return self._error_response(
+                        f"capability denied: {cap_reason}", req_id
+                    )
+
+        # ── 5. Dispatch ──
         if method == METHOD_MESSAGE_SEND:
             return self._handle_message_send(params, req_id, sender_id, signature_hex)
         if method == METHOD_TASKS_GET:
@@ -91,6 +140,26 @@ class ReceivingDaemon:
             id=req_id,
             error={"code": -32601, "message": f"method not found: {method}"},
         ).to_dict()
+
+    def _check_capability(
+        self, token: str, sender_id: str, required: str
+    ) -> tuple[bool, str]:
+        """Verify the sender's token grants the required capability.
+
+        Returns ``(ok, reason)``. We require the token's ``sub`` to equal the
+        HMAC-asserted ``sender_id`` so a valid token from agent A cannot be
+        replayed by agent B even if B successfully forges the HMAC (defence
+        in depth — the HMAC verify already prevents that).
+        """
+        if not token:
+            return False, "missing X-A2A-Token"
+        assert self.network is not None
+        result = self.network.verify_request(token, required)
+        if not result.ok:
+            return False, result.reason
+        if result.claims is None or result.claims.sub != sender_id:
+            return False, "token subject does not match sender"
+        return True, "ok"
 
     # ── method handlers ────────────────────────────────────────────────
 

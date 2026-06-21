@@ -8,6 +8,8 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
+from synapse.security.capabilities import DEFAULT_A2A_CAPABILITIES
+
 from ..a2a import JsonRpcRequest, METHOD_TASKS_RESULT
 from ..a2a_signer import A2ASigner
 from ..audit import AuditEntry, AuditLog, now_iso
@@ -197,11 +199,16 @@ def accept_task(
     )
     payload = rpc.to_json().encode()
     signed = signer.sign(receiver_id, payload)
+    # Issue a token so the original sender's receiver lets `tasks/result` through
+    # (it requires the ``a2a.send_result`` capability per Trust Model Gate 3).
+    token = signer._network.issue_token(  # noqa: SLF001 — same-network access
+        receiver_id, capabilities=list(DEFAULT_A2A_CAPABILITIES),
+    )
 
     try:
         post_jsonrpc(
             endpoint.url, payload, receiver_id, signed.signature_hex,
-            timestamp=signed.timestamp,
+            timestamp=signed.timestamp, token=token,
         )
     except TransportUnreachable as exc:
         audit.append(

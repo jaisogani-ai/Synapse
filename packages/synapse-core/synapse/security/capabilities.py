@@ -71,6 +71,19 @@ CAPABILITIES: tuple[Capability, ...] = (
     # Security operations
     Capability("secret.detect", "Detect secrets before commit", "low"),
     Capability("supply_chain.scan", "Scan MCPs/plugins/packages", "medium"),
+    # A2A — required by the receiving daemon for each RPC method
+    Capability("a2a.send_task", "Send a task via A2A message/send", "medium"),
+    Capability("a2a.send_result", "Return a result via A2A tasks/result", "medium"),
+    Capability("a2a.read_status", "Read task status via A2A tasks/get", "low"),
+)
+
+#: Default A2A capability set granted to a CLI/adapter agent so it can both
+#: send tasks and return results. Used by ``commands/send_task`` and the
+#: ``synapse`` adapters as the baseline grant.
+DEFAULT_A2A_CAPABILITIES: tuple[str, ...] = (
+    "a2a.send_task",
+    "a2a.send_result",
+    "a2a.read_status",
 )
 
 #: Fast lookup of registered capability names.
