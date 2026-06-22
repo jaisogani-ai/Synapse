@@ -5,8 +5,6 @@
 
 <img src="assets/architecture.png" alt="Synapse — Trusted A2A for Claude Code, Cursor, Codex, Antigravity and VS Code" width="920">
 
-<img src="assets/synapse-core.png" alt="Synapse Core — Identity, Trust, Vault, Audit, Security" width="920">
-
 # 🔐 Synapse
 
 ### Trusted Agent-to-Agent (A2A) infrastructure for AI systems.
@@ -68,6 +66,8 @@
 Watch Synapse hand off a credential between devices without the secret ever leaving the vault.
 
 <div align="center">
+
+<img src="assets/synapse-core.png" alt="Synapse Core — Identity, Trust, Vault, Audit, Security" width="920">
 
 ![Synapse demo](assets/demo.gif)
 
