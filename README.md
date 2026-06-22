@@ -67,11 +67,11 @@ Watch Synapse hand off a credential between devices without the secret ever leav
 
 <div align="center">
 
-[![▶ Watch the 45-second demo (with audio)](assets/architecture.png)](https://github.com/jaisogani-ai/Synapse/raw/main/assets/synapse-demo.mp4)
+![Synapse demo](assets/demo.gif)
 
-### ▶ [**Click to watch the 45-second demo (with audio)**](https://github.com/jaisogani-ai/Synapse/raw/main/assets/synapse-demo.mp4)
+### ▶ [**Click here to watch with audio (45 seconds)**](https://github.com/jaisogani-ai/Synapse/raw/main/assets/synapse-demo.mp4)
 
-<sub>1280×720 · H.264 video · AAC stereo audio · 19 MB · opens in your browser's video player</sub>
+<sub>1280×720 · H.264 · AAC stereo audio · opens in your browser's video player with sound</sub>
 
 </div>
 
