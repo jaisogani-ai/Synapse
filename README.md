@@ -69,13 +69,16 @@ Watch Synapse hand off a credential between devices without the secret ever leav
 
 <div align="center">
 
-<video src="assets/synapse-demo.mp4" controls muted loop autoplay playsinline width="920">
-  Your browser does not support the HTML video tag.
-  <a href="assets/synapse-demo.mp4">Download the 45-second demo</a> or
-  <a href="assets/demo.gif">view the animated GIF fallback</a>.
+### ▶ [**Watch the 45-second demo with audio**](assets/synapse-demo.mp4?raw=1)
+
+<sub>1280×720 · H.264 video · AAC stereo audio · 19 MB</sub>
+
+<video src="assets/synapse-demo.mp4" controls loop playsinline width="920">
+  Your browser does not support inline HTML5 video.
+  <strong><a href="assets/synapse-demo.mp4?raw=1">Click here to watch the demo with audio</a></strong>.
 </video>
 
-<sub>45 seconds · 1280×720 · audio included. If the video doesn't render in your viewer, the GIF above plays the same content.</sub>
+> 🔊 **About audio:** the animated GIF at the top of this README is **silent by format** — the GIF spec cannot carry audio. To hear the demo narration, click the link above (or the inline player) to open the .mp4 file, which has full stereo audio.
 
 </div>
 
