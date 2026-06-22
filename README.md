@@ -19,7 +19,7 @@
 [![A2A](https://img.shields.io/badge/A2A-spec--compliant-7C3AED.svg)](https://a2aproject.org)
 [![Status](https://img.shields.io/badge/status-v0.1.0--alpha-orange.svg)](CHANGELOG.md)
 
-![Synapse demo](assets/demo.gif)
+<img src="assets/architecture.png" alt="Synapse architecture — trusted A2A for Claude Code, Cursor, Codex, Antigravity and VS Code" width="920">
 
 </div>
 
@@ -181,13 +181,7 @@ Cross-agent communication is a separate concern: tasks delegated between agents 
 > X25519+AES-256-GCM) · File Transfer (chunked, resumable) · Presence ·
 > Inbox Review · Outbox & Retry · Patch Review Workflow.
 >
-> ❌ **Not implemented yet:** full W3C DID-method registry · "Behaviour
-> Analysis" as a *learned* ML model (we ship statistical reputation, not a
-> trained model).
->
-> ⚠️ **Words in the diagram this README does NOT claim:** "Enterprise Grade",
-> "Production Ready". Synapse is **v0.1.0-alpha** — those would be inaccurate.
-> Full honest gap list: [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md).
+Known gaps and honest limitations: [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md).
 
 Text-based, source-true flow diagrams (high-level, identity, vault, A2A task, capability, trust) live in [`docs/diagrams/`](docs/diagrams/). Full architecture write-up: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Daemon IPC wire protocol: [`docs/PROTOCOL.md`](docs/PROTOCOL.md).
 
