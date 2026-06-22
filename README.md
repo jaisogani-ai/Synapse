@@ -3,7 +3,7 @@
 
 <div align="center">
 
-<img src="assets/hero.png" alt="Synapse — Trusted Agent-to-Agent infrastructure for AI systems" width="920">
+<img src="assets/architecture.png" alt="Synapse — Trusted A2A for Claude Code, Cursor, Codex, Antigravity and VS Code" width="920">
 
 # 🔐 Synapse
 
@@ -18,8 +18,6 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-Node%2020%2B-3178C6.svg?logo=typescript&logoColor=white)](packages/synapse-vault-mcp/)
 [![A2A](https://img.shields.io/badge/A2A-spec--compliant-7C3AED.svg)](https://a2aproject.org)
 [![Status](https://img.shields.io/badge/status-v0.1.0--alpha-orange.svg)](CHANGELOG.md)
-
-<img src="assets/architecture.png" alt="Synapse architecture — trusted A2A for Claude Code, Cursor, Codex, Antigravity and VS Code" width="920">
 
 </div>
 
@@ -69,16 +67,13 @@ Watch Synapse hand off a credential between devices without the secret ever leav
 
 <div align="center">
 
-[![▶ Watch demo with audio (45s, 1280×720, stereo)](assets/hero.png)](https://github.com/jaisogani-ai/Synapse/raw/main/assets/synapse-demo.mp4)
+[![▶ Watch the 45-second demo (with audio)](assets/architecture.png)](https://github.com/jaisogani-ai/Synapse/raw/main/assets/synapse-demo.mp4)
 
 ### ▶ [**Click to watch the 45-second demo (with audio)**](https://github.com/jaisogani-ai/Synapse/raw/main/assets/synapse-demo.mp4)
 
 <sub>1280×720 · H.264 video · AAC stereo audio · 19 MB · opens in your browser's video player</sub>
 
 </div>
-
-> 🔊 **Why is the looping preview at the top of this page silent?**
-> The animated preview is a `.gif` — the GIF spec **cannot carry audio**, ever. The full demo with stereo narration lives in [`assets/synapse-demo.mp4`](assets/synapse-demo.mp4). Click the poster above (or the link) to open it with sound. *(GitHub's README sanitizer does not auto-play `<video>` tags from repo files; inline auto-play with audio only works for files uploaded via GitHub's web UI. This is a GitHub limitation, not a Synapse one.)*
 
 ---
 
