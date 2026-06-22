@@ -26,7 +26,7 @@ These are not gaps. They are non-goals. Listed so nobody is surprised.
 
 | # | Limitation | Impact | Mitigation today | Plan |
 |---|---|---|---|---|
-| C-1 | No end-to-end *payload* encryption | A network observer can read A2A JSON-RPC payloads if TLS is not also configured (raw vault secrets never serialize) | **Option A:** opt-in mTLS via `pip install synapse[mtls]` + `synapse identity gen-cert <agent>` + `SYNAPSE_MTLS=1`. **Option B:** Tailscale / WireGuard / HTTPS reverse proxy. | mTLS shipped opt-in in v0.1.0-alpha. End-to-end *application*-layer payload encryption above TLS is still not planned for v0.1. |
+| C-1 | ~~No end-to-end payload encryption~~ **CLOSED in v0.1.0-alpha** | ~~A network observer can read A2A payloads~~ | **Three independent layers now available:** (1) E2E payload encryption — `synapse send-task --encrypt`, X25519+AES-256-GCM, only the recipient decrypts; (2) opt-in mTLS for transport confidentiality; (3) Tailscale / WireGuard underneath. Raw vault secrets never serialize regardless. | Done. |
 | C-2 | Per-agent secret is the trust root | Exfiltrating a secret lets an attacker forge messages and tokens for that one agent | Rotate via `network.issue_identity(agent_id)` (one call) | Stays per-agent for v0.1. Hardware-key-backed identity is a maybe for a later release. |
 | C-3 | JWT TTL is 15 min by default | An exfiltrated token works for up to 15 minutes | Lower `DEFAULT_TTL_SECONDS` if your environment needs it | Configurable per-issue. No change planned. |
 | C-4 | HS256 (HMAC) tokens, not asymmetric | Receiver must hold the sender's secret to verify | Per-agent secret is shared at identity issuance time, never on the wire | Asymmetric (Ed25519) tokens are a future consideration. |

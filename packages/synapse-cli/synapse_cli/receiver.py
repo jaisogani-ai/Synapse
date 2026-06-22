@@ -60,6 +60,9 @@ class ReceivingDaemon:
     enforce_capabilities: bool = True
     quarantine: QuarantineStore | None = None
     failure_tracker: FailureTracker | None = None
+    #: X25519 private key for decrypting end-to-end-encrypted payloads.
+    #: When None, encrypted messages are rejected (fail-closed).
+    e2e_private_key: "object | None" = None
 
     def __post_init__(self) -> None:
         # If no network was injected, reuse the signer's. They share secrets
@@ -103,6 +106,35 @@ class ReceivingDaemon:
         # Gate 1 passed — reset the failure counter so transient noise doesn't quarantine.
         assert self.failure_tracker is not None
         self.failure_tracker.record_success(sender_id)
+
+        # ── 2b. End-to-end decryption ──
+        #   If the (signature-verified) body is a sealed E2E envelope, decrypt
+        #   it with our private key before parsing the JSON-RPC. The HMAC has
+        #   already proven integrity over the ciphertext; the seal proves only
+        #   our key can read the contents.
+        try:
+            outer = json.loads(body)
+        except json.JSONDecodeError:
+            outer = None
+        if isinstance(outer, dict):
+            from .e2e import E2EError, is_encrypted_envelope, unseal
+
+            if is_encrypted_envelope(outer):
+                if self.e2e_private_key is None:
+                    self._audit_reject("e2e_no_key", sender_id, "")
+                    return self._error_response(
+                        "message is end-to-end encrypted but receiver has no key"
+                    )
+                # The sealed envelope binds its own sender; cross-check it
+                # against the HMAC-asserted sender for defence in depth.
+                if str(outer.get("sender", "")) != sender_id:
+                    self._audit_reject("e2e_sender_mismatch", sender_id, "")
+                    return self._error_response("e2e sender mismatch")
+                try:
+                    body = unseal(outer, self.e2e_private_key)
+                except E2EError:
+                    self._audit_reject("e2e_decrypt_failed", sender_id, "")
+                    return self._error_response("e2e decryption failed")
 
         # ── 3. Parse JSON-RPC ──
         try:

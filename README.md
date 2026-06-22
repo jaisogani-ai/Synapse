@@ -16,7 +16,7 @@ Trusted A2A for **Claude Code, Cursor, Codex, Antigravity, VS Code** — and any
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB.svg?logo=python&logoColor=white)](packages/synapse-core/)
 [![Rust](https://img.shields.io/badge/Rust-1.80%2B-CE412B.svg?logo=rust&logoColor=white)](daemon/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Node%2020%2B-3178C6.svg?logo=typescript&logoColor=white)](packages/synapse-vault-mcp/)
-[![Tests](https://img.shields.io/badge/tests-165%2F165-brightgreen.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-182%2F182-brightgreen.svg)](#tests)
 [![A2A](https://img.shields.io/badge/A2A-spec--compliant-7C3AED.svg)](https://a2aproject.org)
 
 </div>
@@ -124,7 +124,9 @@ The 6 source-true Mermaid flow diagrams (high-level, identity, vault, A2A task, 
 >
 > ✅ **Implemented in v0.1.0-alpha:** Identity (per-agent HMAC + HS256 JWT) · Trust & Reputation (confidence-weighted) · Vault & Secrets (AES-256-GCM + scoped proxies) · A2A Messaging (spec-compliant) · Audit & Logging (**hash-chained, forensically verifiable**) · Capability Enforcement (per RPC method + per Rust IPC TrustOp) · Secret Detector (140+ patterns) · Risk Scoring (reputation = risk score) · Policy Enforcement (capability gate) · Anomaly Detection (per-sender rate Z-score) · Threat Response (auto-block after N consecutive Gate-1 failures) · Quarantine & Isolation (`synapse quarantine`) · Access Review (`synapse audit review`) · Continuous Verification (every message walks all three gates) · Device Identity in `did:synapse:<agent_id>` format.
 >
-> ❌ **Not yet implemented:** full W3C DID-method registry · end-to-end payload encryption · Behaviour Analysis as an ML model (we ship reputation, which is statistical, not learned). All listed in [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md).
+> ❌ **Not yet implemented:** full W3C DID-method registry · Behaviour Analysis as an ML model (we ship reputation, which is statistical, not learned). All listed in [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md).
+>
+> **End-to-end encryption:** ✅ shipped, **opt-in**. `pip install synapse[mtls]` (same `cryptography` dep) + `synapse identity gen-keypair <agent>` + `synapse send-task --encrypt`. X25519 + AES-256-GCM sealed envelopes; only the recipient's private key decrypts, independent of transport. Forward-secret per message.
 >
 > **Mutual TLS:** ✅ shipped, **opt-in**. `pip install synapse[mtls]` adds the cert tooling. By default A2A runs over HTTP — the HMAC layer + capability gate already give authentication and integrity. Turn mTLS on when you want transport-layer confidentiality on hostile networks where Tailscale / WireGuard isn't an option. Self-signed; no CA infrastructure ships in v0.1.0-alpha.
 >
@@ -154,7 +156,8 @@ Everything below is wired up, tested, and demonstrated. No placeholders.
 | **Access review** | `synapse audit review` summarizes the hash-chained log by sender/receiver/action inside an optional time window | [`access_review.py`](packages/synapse-core/synapse/security/access_review.py) |
 | **Device identity (DID)** | Stable `did:synapse:<agent_id>[#<device_id>]` identifier format. Not full W3C DID method registry. | [`device_identity.py`](packages/synapse-core/synapse/security/device_identity.py) |
 | **Continuous Verifier** | The labelled three-gate orchestrator (quarantine → signature → reputation → capability). Tests pin gate order and short-circuit. | [`continuous_verifier.py`](packages/synapse-core/synapse/security/continuous_verifier.py) |
-| **Opt-in mTLS** | Self-signed mutual TLS. `synapse identity gen-cert <agent>` emits cert + key; `A2AServer(ssl_context=...)` wraps the receiver; trust dir = drop the peer's cert into `~/.synapse/certs/`. Real TLS handshake — verified by 9 tests. | [`mtls.py`](packages/synapse-cli/synapse_cli/mtls.py) |
+| **Opt-in mTLS** | Self-signed mutual TLS. `synapse identity gen-cert <agent>` emits cert + key; `A2AServer(ssl_context=...)` wraps the receiver; trust dir = drop the peer's cert into `~/.synapse/certs/`. Real TLS handshake — verified by 10 tests. | [`mtls.py`](packages/synapse-cli/synapse_cli/mtls.py) |
+| **End-to-end encryption** | X25519 + HKDF-SHA256 + AES-256-GCM sealed envelopes. `synapse identity gen-keypair <agent>`; `synapse send-task --encrypt` seals the payload so **only the recipient's private key can read it** — independent of transport. Forward-secret (ephemeral key per message); sender/recipient bound into the GCM AAD. Receiver fails closed without the key. 17 tests. | [`e2e.py`](packages/synapse-cli/synapse_cli/e2e.py) |
 | **5 platform adapters** | Claude Code, Cursor, Codex, VS Code, Antigravity — each ~30 LOC on `BaseAdapter`; 42 tests pass | [`packages/adapters/`](packages/adapters/) |
 
 ### Tests
@@ -162,9 +165,9 @@ Everything below is wired up, tested, and demonstrated. No placeholders.
 | Suite | Result | Command |
 |---|---|---|
 | `cargo test` | **39 / 39** ✅ | `cargo test` |
-| `pytest` | **116 / 116** ✅ | `PYTHONPATH=… python3.11 -m pytest tests packages/adapters packages/synapse-cli/tests -q` |
+| `pytest` | **133 / 133** ✅ | `PYTHONPATH=… python3.11 -m pytest tests packages/adapters packages/synapse-cli/tests -q` |
 | `npm test` (vault MCP) | **10 / 10** ✅ | `(cd packages/synapse-vault-mcp && npm test)` |
-| **Total** | **165 / 165** | |
+| **Total** | **182 / 182** | |
 
 Plus the live `vps-handoff-no-raw-keys` demo: **RESULT: PASS** (real AES-256-GCM vault driven via the Node bridge, asserts zero raw-key audit exposure).
 

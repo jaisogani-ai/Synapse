@@ -38,16 +38,17 @@ demonstrated. Expect rough edges. Known gaps are documented in
 | **Access review** | `synapse audit review` summarizes the audit log by sender/receiver/action. |
 | **Device identity (DID-style)** | `did:synapse:<agent_id>[#<device_id>]` identifier format. |
 | **Continuous Verifier** | Labelled three-gate orchestrator; tests pin gate order and short-circuit semantics. |
-| **Opt-in mTLS** | Self-signed mutual TLS. `pip install synapse[mtls]` + `synapse identity gen-cert <agent>` + `SYNAPSE_MTLS=1` enables it. HTTP remains the default. 9 tests cover the real TLS handshake. |
+| **Opt-in mTLS** | Self-signed mutual TLS. `pip install synapse[mtls]` + `synapse identity gen-cert <agent>` + `SYNAPSE_MTLS=1` enables it. HTTP remains the default. 10 tests cover the real TLS handshake. |
+| **End-to-end encryption** | X25519+AES-256-GCM sealed envelopes. `synapse identity gen-keypair <agent>` + `synapse send-task --encrypt`. Only the recipient's private key decrypts; forward-secret per message; receiver fails closed without the key. 17 tests. |
 
 ## Tests
 
 | Suite | Count |
 |---|---|
 | `cargo test` (Rust daemon) | 39 / 39 |
-| `pytest` (Python SDK + CLI + adapters) | 106 / 106 |
+| `pytest` (Python SDK + CLI + adapters) | 133 / 133 |
 | `npm test` (vault MCP) | 10 / 10 |
-| **Total** | **155 / 155** |
+| **Total** | **182 / 182** |
 
 ## Demos
 

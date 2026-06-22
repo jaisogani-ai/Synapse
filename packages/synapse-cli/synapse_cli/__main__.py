@@ -77,6 +77,20 @@ def _cmd_send(args: argparse.Namespace) -> int:
         ans = input(f"{msg} [y/N] ").strip().lower()
         return ans in ("y", "yes")
 
+    # ── optional end-to-end encryption ──
+    # --encrypt seals the payload to the target's X25519 public key, looked up
+    # from ~/.synapse/keys/<target>.x25519.pub (drop the peer's .pub there).
+    e2e_recipient_key = None
+    if getattr(args, "encrypt", False):
+        from .e2e import E2EError, PublicKeyRegistry
+        reg = PublicKeyRegistry(home / "keys")
+        try:
+            e2e_recipient_key = reg.get(args.target)
+        except E2EError as exc:
+            print(f"error: --encrypt requires {args.target}'s public key: {exc}",
+                  file=sys.stderr)
+            return 2
+
     blob_base_url = os.environ.get("SYNAPSE_BLOB_BASE_URL", "")
     result = send_task(
         opts,
@@ -88,6 +102,7 @@ def _cmd_send(args: argparse.Namespace) -> int:
         outbox=outbox,
         blob_cache=blob_cache,
         blob_base_url=blob_base_url,
+        e2e_recipient_key=e2e_recipient_key,
         confirm_fn=_ask,
     )
     print(json.dumps({
@@ -234,6 +249,34 @@ def _cmd_identity(args: argparse.Namespace) -> int:
         cert_dir = home / "certs"
         certs = [str(p) for p in load_trust_dir(cert_dir)]
         print(json.dumps({"cert_dir": str(cert_dir), "certs": certs}, indent=2, sort_keys=True))
+        return 0
+
+    if args.subcmd == "gen-keypair":
+        if not args.agent_id:
+            print("error: agent_id required for gen-keypair", file=sys.stderr)
+            return 2
+        from .e2e import generate_keypair
+        key_dir = home / "keys"
+        files = generate_keypair(args.agent_id, key_dir)
+        print(json.dumps({
+            "agent_id": files.agent_id,
+            "private_path": str(files.private_path),
+            "public_path": str(files.public_path),
+            "note": (
+                "share the .pub (NOT the private key) with peers — drop it into "
+                "their keys/ directory to let them encrypt to you"
+            ),
+        }, indent=2, sort_keys=True))
+        return 0
+
+    if args.subcmd == "list-keys":
+        from .e2e import PublicKeyRegistry
+        key_dir = home / "keys"
+        reg = PublicKeyRegistry(key_dir)
+        print(json.dumps(
+            {"key_dir": str(key_dir), "agents": reg.list_agents()},
+            indent=2, sort_keys=True,
+        ))
         return 0
 
     return 1
@@ -413,6 +456,11 @@ def main() -> int:
         default="",
         help="vault service to issue a credential proxy for",
     )
+    send.add_argument(
+        "--encrypt",
+        action="store_true",
+        help="end-to-end encrypt the payload to the target's X25519 public key",
+    )
     send.set_defaults(handler=_cmd_send)
 
     inbox = subs.add_parser("inbox", help="List / accept / reject / review received tasks")
@@ -488,10 +536,13 @@ def main() -> int:
         help="Generate or list mTLS certificates",
     )
     identity_cmd.add_argument(
-        "subcmd", nargs="?", default="list-certs", choices=["gen-cert", "list-certs"]
+        "subcmd",
+        nargs="?",
+        default="list-certs",
+        choices=["gen-cert", "list-certs", "gen-keypair", "list-keys"],
     )
     identity_cmd.add_argument(
-        "agent_id", nargs="?", help="agent_id for gen-cert"
+        "agent_id", nargs="?", help="agent_id for gen-cert / gen-keypair"
     )
     identity_cmd.add_argument(
         "--validity-days",

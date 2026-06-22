@@ -35,6 +35,7 @@ First public release.
 - **Device identity** — stable `did:synapse:<agent_id>[#<device_id>]` identifier format (`device_identity.py`).
 - **Continuous Verifier** — labelled three-gate orchestrator; tests pin gate order + short-circuit (`continuous_verifier.py`).
 - **Opt-in mTLS** — self-signed mutual TLS at the A2A transport. `synapse identity gen-cert <agent>` emits cert + key; `A2AServer(ssl_context=...)` wraps the receiver; trust dir = drop the peer's `.crt` into `~/.synapse/certs/`. HTTP remains the default; mTLS is opt-in via constructor arg or `SYNAPSE_MTLS=1`. Optional extra: `pip install synapse[mtls]`. (`mtls.py`)
+- **End-to-end encryption** — X25519 + HKDF-SHA256 + AES-256-GCM sealed envelopes. `synapse identity gen-keypair <agent>` + `synapse send-task --encrypt` seal the payload so only the recipient's private key can read it, independent of transport. Forward-secret (ephemeral key per message); sender/recipient bound into the GCM AAD; receiver fails closed without the key. (`e2e.py`)
 - **5 adapters** — Claude Code, Cursor, Codex, VS Code, Antigravity (`packages/adapters/`).
 - **3 demos** — `vps-handoff-no-raw-keys`, `cross-device-task-delegation`, `malicious-sender-rejection`.
 - **CLI** — `send-task`, `inbox list|review|accept|reject`, `outbox list|retry|flush|purge`, `presence get|set|list`.

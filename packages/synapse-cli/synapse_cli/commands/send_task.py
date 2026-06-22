@@ -17,6 +17,7 @@ Flow:
 from __future__ import annotations
 
 import base64
+import json
 import mimetypes
 from dataclasses import dataclass
 from pathlib import Path
@@ -91,6 +92,7 @@ def send_task(
     blob_cache: BlobCache | None = None,
     blob_base_url: str = "",
     ssl_context: "object | None" = None,
+    e2e_recipient_key: "object | None" = None,
     confirm_fn: Callable[[str], bool] | None = None,
     reachable_fn: Callable[[str], bool] | None = None,
 ) -> SendResult:
@@ -232,6 +234,22 @@ def send_task(
         params={"task": task.to_dict()},
     )
     payload = rpc.to_json().encode()
+
+    # ── 6-e2e. Optional end-to-end encryption ───────────────────────
+    #   When a recipient public key is supplied, the JSON-RPC payload is
+    #   sealed with X25519+AES-256-GCM so only the recipient can read it.
+    #   The HMAC then signs the *ciphertext* envelope (integrity over the
+    #   sealed bytes). The receiver decrypts after signature verification.
+    if e2e_recipient_key is not None:
+        from ..e2e import seal  # local import keeps cryptography optional
+
+        envelope = seal(
+            payload,
+            e2e_recipient_key,
+            sender_id=opts.sender_id,
+            recipient_id=opts.target_id,
+        )
+        payload = json.dumps(envelope, separators=(",", ":")).encode()
 
     # ── 7. Sign the full payload (timestamp bound into signature) ────
     signed = signer.sign(opts.sender_id, payload)
