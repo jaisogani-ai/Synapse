@@ -238,7 +238,7 @@ Everything below is wired up, tested, and demonstrated. No placeholders.
 | Identity & zero-trust | ~15 | HMAC, JWT issue/verify, subject-mismatch denial |
 | Vault (Python facade + Node core) | 10 + ~7 | AES-256-GCM round-trip, proxy expiry, redaction, tamper detection |
 | Hash-chained audit | 8 | Modification, deletion, forged-row insertion all caught |
-| mTLS | 9 | Real TLS handshake, cert generation, server/client verification |
+| mTLS | 10 | Real TLS handshake, cert generation, server/client verification |
 | End-to-end encryption | 17 | Seal/open round-trip, AAD binding, ephemeral-key forward secrecy |
 | Patch review | 12 | Patch generation, context-validated apply, comment thread |
 | Capability gate (A2A + IPC) | ~11 | Method table, subject binding, wildcard handling, denial paths |
@@ -421,7 +421,7 @@ SYNAPSE_MTLS=1 synapse send-task --from bob --to alice --task "..."
 
 - HTTP remains the default. mTLS is opt-in via constructor arg or `SYNAPSE_MTLS=1`.
 - Optional extra: `pip install synapse[mtls]`.
-- **9 tests** cover real TLS handshakes (not mocks): cert generation, server verification, client verification, and the full `send-task` flow over mTLS ([`packages/synapse-cli/tests/test_mtls*.py`](packages/synapse-cli/tests/)).
+- **10 tests** cover real TLS handshakes (not mocks): cert generation, server verification, client verification, and the full `send-task` flow over mTLS ([`packages/synapse-cli/tests/test_mtls.py`](packages/synapse-cli/tests/test_mtls.py)).
 
 **Limitations** (disclosed): self-signed only, no CA / revocation infrastructure yet — CA-backed mTLS is a "Beyond v0.2" open question.
 
