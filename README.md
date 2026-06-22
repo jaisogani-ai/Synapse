@@ -16,7 +16,7 @@ Trusted A2A for **Claude Code, Cursor, Codex, Antigravity, VS Code** — and any
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB.svg?logo=python&logoColor=white)](packages/synapse-core/)
 [![Rust](https://img.shields.io/badge/Rust-1.80%2B-CE412B.svg?logo=rust&logoColor=white)](daemon/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Node%2020%2B-3178C6.svg?logo=typescript&logoColor=white)](packages/synapse-vault-mcp/)
-[![Tests](https://img.shields.io/badge/tests-182%2F182-brightgreen.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-194%2F194-brightgreen.svg)](#tests)
 [![A2A](https://img.shields.io/badge/A2A-spec--compliant-7C3AED.svg)](https://a2aproject.org)
 
 </div>
@@ -158,6 +158,7 @@ Everything below is wired up, tested, and demonstrated. No placeholders.
 | **Continuous Verifier** | The labelled three-gate orchestrator (quarantine → signature → reputation → capability). Tests pin gate order and short-circuit. | [`continuous_verifier.py`](packages/synapse-core/synapse/security/continuous_verifier.py) |
 | **Opt-in mTLS** | Self-signed mutual TLS. `synapse identity gen-cert <agent>` emits cert + key; `A2AServer(ssl_context=...)` wraps the receiver; trust dir = drop the peer's cert into `~/.synapse/certs/`. Real TLS handshake — verified by 10 tests. | [`mtls.py`](packages/synapse-cli/synapse_cli/mtls.py) |
 | **End-to-end encryption** | X25519 + HKDF-SHA256 + AES-256-GCM sealed envelopes. `synapse identity gen-keypair <agent>`; `synapse send-task --encrypt` seals the payload so **only the recipient's private key can read it** — independent of transport. Forward-secret (ephemeral key per message); sender/recipient bound into the GCM AAD. Receiver fails closed without the key. 17 tests. | [`e2e.py`](packages/synapse-cli/synapse_cli/e2e.py) |
+| **Patch review workflow** | Reviewing agent returns a **unified diff**; sender reviews it, **applies it** with strict context validation (never half-applies a stale patch), or **comments → revise → resubmit** in a threaded loop keyed by A2A `context_id`. `synapse patch make / summarize / apply`. 12 tests. | [`patch.py`](packages/synapse-cli/synapse_cli/patch.py) |
 | **5 platform adapters** | Claude Code, Cursor, Codex, VS Code, Antigravity — each ~30 LOC on `BaseAdapter`; 42 tests pass | [`packages/adapters/`](packages/adapters/) |
 
 ### Tests
@@ -165,9 +166,9 @@ Everything below is wired up, tested, and demonstrated. No placeholders.
 | Suite | Result | Command |
 |---|---|---|
 | `cargo test` | **39 / 39** ✅ | `cargo test` |
-| `pytest` | **133 / 133** ✅ | `PYTHONPATH=… python3.11 -m pytest tests packages/adapters packages/synapse-cli/tests -q` |
+| `pytest` | **145 / 145** ✅ | `PYTHONPATH=… python3.11 -m pytest tests packages/adapters packages/synapse-cli/tests -q` |
 | `npm test` (vault MCP) | **10 / 10** ✅ | `(cd packages/synapse-vault-mcp && npm test)` |
-| **Total** | **182 / 182** | |
+| **Total** | **194 / 194** | |
 
 Plus the live `vps-handoff-no-raw-keys` demo: **RESULT: PASS** (real AES-256-GCM vault driven via the Node bridge, asserts zero raw-key audit exposure).
 
@@ -217,7 +218,7 @@ python3.11 examples/vps-handoff-no-raw-keys/demo.py
 
 ### Demo 2 — Cross-device task delegation with human approval
 
-Laptop sends a signed `review auth module` task plus an attached file to the VPS receiver. The VPS receiver polls its inbox, prompts the operator to accept or reject, then sends a result back via `tasks/result`.
+Laptop sends a signed `review auth module` task plus an attached file to the VPS reviewer. The reviewer returns a **unified diff**; the laptop reviews it (`synapse patch summarize`) and either **applies it** (`synapse patch apply`, strict context validation) or **comments to request a revision** — looping comment → revise → resubmit until accepted. Whole exchange is signed, capability-gated, and audited.
 
 ```bash
 # terminal 1 — receiver
@@ -291,6 +292,16 @@ synapse audit review          # → who-did-what summary by sender / action
 synapse quarantine list
 synapse quarantine add <agent_id> --reason "manual block"
 synapse quarantine release <agent_id>
+
+# Patch review workflow
+synapse patch make --old before.py --new after.py --name auth.py > change.diff
+synapse patch summarize --patch change.diff      # +N / -M / hunks
+synapse patch apply auth.py --patch change.diff --dry-run   # validate first
+synapse patch apply auth.py --patch change.diff             # apply (context-checked)
+
+# End-to-end encrypt a task to a peer (needs their X25519 pubkey)
+synapse identity gen-keypair alice
+synapse send-task --from alice --to bob --task "..." --encrypt
 ```
 
 State lives under `$SYNAPSE_HOME` (default `~/.synapse/`): `identity.json`, `trust.json`, `inbox.db`, `outbox.db`, `audit.jsonl`, `blobs/`. Everything is inspect-friendly with `cat`, `jq`, and `sqlite3`.

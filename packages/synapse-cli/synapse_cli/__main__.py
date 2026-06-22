@@ -282,6 +282,56 @@ def _cmd_identity(args: argparse.Namespace) -> int:
     return 1
 
 
+def _cmd_patch(args: argparse.Namespace) -> int:
+    """Patch review workflow — summarize, apply, or generate unified diffs."""
+    from .patch import apply_patch, make_patch, summarize_patch
+
+    if args.subcmd == "summarize":
+        if not args.patch_file:
+            print("error: patch_file required for summarize", file=sys.stderr)
+            return 2
+        patch_text = Path(args.patch_file).expanduser().read_text()
+        s = summarize_patch(patch_text)
+        print(json.dumps({
+            "filename": s.filename,
+            "added": s.added,
+            "removed": s.removed,
+            "hunks": s.hunks,
+        }, indent=2, sort_keys=True))
+        return 0
+
+    if args.subcmd == "make":
+        if not args.old or not args.new:
+            print("error: make needs --old and --new file paths", file=sys.stderr)
+            return 2
+        old = Path(args.old).expanduser().read_text()
+        new = Path(args.new).expanduser().read_text()
+        name = args.name or Path(args.old).name
+        print(make_patch(old, new, name), end="")
+        return 0
+
+    if args.subcmd == "apply":
+        if not args.target or not args.patch_file:
+            print("error: apply needs <target-file> and --patch", file=sys.stderr)
+            return 2
+        target = Path(args.target).expanduser()
+        patch_text = Path(args.patch_file).expanduser().read_text()
+        result = apply_patch(target.read_text(), patch_text)
+        if not result.ok:
+            print(json.dumps({"ok": False, "reason": result.reason}, sort_keys=True),
+                  file=sys.stderr)
+            return 2
+        if args.dry_run:
+            print(json.dumps({"ok": True, "dry_run": True,
+                              "would_write": str(target)}, sort_keys=True))
+            return 0
+        target.write_text(result.applied_text)
+        print(json.dumps({"ok": True, "applied_to": str(target)}, sort_keys=True))
+        return 0
+
+    return 1
+
+
 def _cmd_quarantine(args: argparse.Namespace) -> int:
     home = _home()
     home.mkdir(parents=True, exist_ok=True)
@@ -552,6 +602,24 @@ def main() -> int:
         help="cert validity in days (default 365)",
     )
     identity_cmd.set_defaults(handler=_cmd_identity)
+
+    patch_cmd = subs.add_parser(
+        "patch",
+        help="Patch review workflow — make / summarize / apply unified diffs",
+    )
+    patch_cmd.add_argument(
+        "subcmd", nargs="?", default="summarize",
+        choices=["make", "summarize", "apply"],
+    )
+    patch_cmd.add_argument("target", nargs="?", help="target file for apply")
+    patch_cmd.add_argument("--patch", dest="patch_file", help="patch (.diff) file")
+    patch_cmd.add_argument("--old", help="original file for make")
+    patch_cmd.add_argument("--new", help="modified file for make")
+    patch_cmd.add_argument("--name", help="filename label for make")
+    patch_cmd.add_argument(
+        "--dry-run", action="store_true", help="validate apply without writing"
+    )
+    patch_cmd.set_defaults(handler=_cmd_patch)
 
     quarantine_cmd = subs.add_parser(
         "quarantine",
