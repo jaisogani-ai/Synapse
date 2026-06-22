@@ -3,9 +3,9 @@
 
 # Security Review — v0.1 (alpha)
 
-**Date:** 2026-06-21
-**Status:** v0.1 release review. Supersedes the prior phase-4 snapshot.
-**Verification:** 128 / 128 automated tests passing (39 Rust + 79 Python + 10 TypeScript).
+**Date:** 2026-06-22
+**Status:** v0.1.0-alpha release review. Supersedes the prior phase-4 snapshot.
+**Verification:** 194 / 194 automated tests passing (39 Rust + 145 Python + 10 TypeScript).
 
 This document is a working threat model. It says what Synapse defends, what it doesn't, what attacks it stops, and which limitations are honest gaps that ship knowingly in v0.1.
 
@@ -146,9 +146,9 @@ These are documented gaps that we knowingly ship. Each has either a planned fix 
 | Limitation | Mitigation today | Planned fix |
 |---|---|---|
 | Rust `TrustStore` is in-memory | Python store is authoritative for v0.1; restart of the Rust daemon loses recorded outcomes. | SQLite backing — v0.2. |
-| No end-to-end payload encryption | HMAC integrity only. Use HTTPS / Tailscale / WireGuard for confidentiality. | Documented choice — TLS-or-tunnel is the v0.1 answer. |
+| ~~No end-to-end payload encryption~~ **CLOSED** | **Shipped in v0.1.0-alpha**: X25519+AES-256-GCM sealed envelopes via `synapse send-task --encrypt`. mTLS also opt-in. Default path remains HMAC over HTTP; use mTLS / E2E / a tunnel for confidentiality on hostile networks. | Done. |
 | Endpoint hash pinning (SH-3) | `identity.json` is operator-controlled; assume trusted FS. | Endpoint pinning by sha256 — v0.2. |
-| Audit tamper-evidence (M-9) | Append-only JSONL + recommended `chattr +a`. | Hash-chained audit — v0.2. |
+| ~~Audit tamper-evidence (M-9)~~ **CLOSED** | **Shipped in v0.1.0-alpha**: hash-chained JSONL (SHA-256 `prev_hash` + `entry_hash` per row); `synapse audit verify` detects modified / deleted / forged rows. | Done. |
 | Per-sender rate limit (M-2) | OS / reverse proxy limits. | Add token-bucket per sender — v0.2. |
 | Vault at-rest for `vault_client.py` (M-7) | The vault MCP (`packages/synapse-vault-mcp`) is encrypted at rest. The CLI's in-process `vault_client.py` is in-memory only, used for sender-side proxy issuance during a single CLI invocation. | Encrypt-at-rest for `vault_client.py` — v0.2. |
 | Inbox SQLite WAL/busy-timeout (M-1) | Outbox already uses WAL; inbox does not. Low concurrency in v0.1, so this is mostly cosmetic. | Enable on inbox — v0.2. |
@@ -175,8 +175,12 @@ These are honest follow-ups, not blockers. Tracked in [`docs/ROADMAP.md`](docs/R
 
 - Persistent Rust trust store (SQLite-backed)
 - Endpoint hash pinning
-- Hash-chained audit log
 - Per-sender rate limit on receiver
 - Encrypt-at-rest for `vault_client.py`
 - Inbox SQLite WAL + busy timeout
 - Token-binding: add a `cnf` (confirmation) claim so a JWT is bound to a specific request via the HMAC signature, blocking same-window same-method replay
+
+Closed since the initial threat model snapshot (shipped in v0.1.0-alpha):
+
+- ~~Hash-chained audit log~~ — landed; `synapse audit verify` detects tampering at the exact index.
+- ~~No end-to-end payload encryption~~ — landed; X25519+AES-256-GCM sealed envelopes, opt-in mTLS.

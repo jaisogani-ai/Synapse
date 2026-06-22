@@ -3,7 +3,9 @@
 
 # @synapse/skills-mcp
 
-**MCP #2** — skill registry + invocation. Exposes Synapse's portable
+**MCP #2 (spinout / deprecated)** — skill registry + invocation. Not part of Synapse v0.1.0-alpha — see [`spinout/README.md`](../README.md) for the spinout policy.
+
+ Exposes Synapse's portable
 SKILL.md-style skills as MCP tools so any MCP client (Claude Code, Cursor, …)
 can list, search, and run them.
 

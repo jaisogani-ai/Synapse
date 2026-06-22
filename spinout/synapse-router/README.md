@@ -3,6 +3,8 @@
 
 # synapse-router
 
+> **Spinout / deprecated.** Not part of Synapse v0.1.0-alpha — see [`spinout/README.md`](../README.md) for the spinout policy.
+
 The Synapse **Intelligent Router** — routes each task to the cheapest model
 that does it well, and proves the savings in real dollars.
 

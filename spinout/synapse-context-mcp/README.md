@@ -3,7 +3,9 @@
 
 # @synapse/context-mcp
 
-**MCP #3** — context optimization as infrastructure. Compress, dedupe, and
+**MCP #3 (spinout / deprecated)** — context optimization as infrastructure. Not part of Synapse v0.1.0-alpha — see [`spinout/README.md`](../README.md) for the spinout policy.
+
+ Compress, dedupe, and
 summarize conversation history so agents stay under the context wall.
 
 ## Tools

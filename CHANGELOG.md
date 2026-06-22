@@ -45,13 +45,13 @@ First public release.
 ### Tests
 
 - `cargo test`: 39 / 39
-- `pytest`: 79 / 79
+- `pytest`: 145 / 145
 - `npm test` (vault MCP): 10 / 10
-- **Total: 128 / 128**
+- **Total: 194 / 194**
 
 ### Known limitations
 
-See [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md). Headlines: Rust `TrustStore` is in-memory; no E2E payload encryption (use HTTPS/Tailscale); audit log not hash-chained; no endpoint hash pinning yet.
+See [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md). Headlines: Rust `TrustStore` is in-memory (Python store is authoritative for v0.1); mTLS and E2E encryption are opt-in (default path is HMAC over HTTP); no endpoint hash pinning yet; no CI workflow yet.
 
 ### Security
 

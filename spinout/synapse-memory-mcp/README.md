@@ -3,7 +3,9 @@
 
 # @synapse/memory-mcp
 
-**MCP #1** — memory access for any MCP client. Bridges MCP tool calls to the
+**MCP #1 (spinout / deprecated)** — memory access for any MCP client. Not part of Synapse v0.1.0-alpha — see [`spinout/README.md`](../README.md) for the spinout policy.
+
+ Bridges MCP tool calls to the
 Synapse daemon's **8-tier memory** over its Unix socket, speaking Synapse
 Protocol v1.0 (kept in lock-step with the Rust daemon).
 

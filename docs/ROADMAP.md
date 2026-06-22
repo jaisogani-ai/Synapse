@@ -20,10 +20,13 @@ Everything below is in the repo today, with tests:
 - **Chunked file transfer** — content-addressed, HTTP `Range`, sha256 end-to-end
 - **Presence** — `online` / `busy` / `offline`
 - **Inbox + review** — accept / reject / review-before-decide
-- **Audit log** — append-only JSONL, every gate failure recorded
+- **Audit log** — append-only **hash-chained** JSONL; `synapse audit verify` detects modified / deleted / forged rows
+- **Opt-in mTLS** — self-signed mutual TLS via `synapse identity gen-cert`
+- **End-to-end encryption** — X25519 + HKDF-SHA256 + AES-256-GCM sealed envelopes via `synapse send-task --encrypt`
+- **Patch review workflow** — unified diffs, context-validated apply, threaded comment → revise → resubmit loop
 - **5 adapters** — Claude Code, Cursor, Codex, VS Code, Antigravity
 - **3 demos** — VPS handoff, cross-device delegation, malicious sender rejection
-- **128 tests** — 39 Rust + 79 Python + 10 TypeScript, all green
+- **194 tests** — 39 Rust + 145 Python + 10 TypeScript, all green
 
 ## v0.2 — planned follow-ups
 
@@ -57,7 +60,6 @@ These are honest gaps documented in [`KNOWN_LIMITATIONS.md`](../KNOWN_LIMITATION
 These are ideas the project has not committed to. They earn their way in only if real use justifies the maintenance cost.
 
 - Asymmetric (Ed25519) tokens instead of HS256
-- Optional end-to-end payload encryption (probably Noise XK if it lands at all)
 - Code-gen the capability vocabulary from one source-of-truth (K-1)
 - Rust-native identity + vault, replacing the Python + Node implementations
 

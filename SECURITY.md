@@ -9,10 +9,10 @@
 
 | Version | Supported | Notes |
 |---|---|---|
-| **1.0.x** | ✅ Yes | Current release line. All security fixes land here. |
-| < 1.0 (pre-release tags) | ❌ No | Replace with 1.0.x. |
+| **0.1.x** | ✅ Yes | Current release line (alpha). All security fixes land here. |
+| < 0.1 (pre-release commits) | ❌ No | Upgrade to the latest 0.1.x tag. |
 
-We do not back-port security fixes to pre-1.0 tags. If you are on a pre-release commit, upgrade to the latest 1.0.x tag.
+Synapse is currently at `v0.1.0-alpha`. We do not back-port security fixes to pre-0.1 commits. Once the project reaches a stable 1.0, this table will be updated.
 
 ## Reporting a vulnerability
 
@@ -73,7 +73,7 @@ If you don't hear back within 7 days, please ping again — email rules can be u
 
 ## Security advisories
 
-Published advisories live at the repo's Security tab and in `audit-rc/` for historical context. A CHANGELOG entry references each CVE / GHSA id.
+Published advisories live at the repo's Security tab. A CHANGELOG entry references each CVE / GHSA id.
 
 ## Out of scope
 
