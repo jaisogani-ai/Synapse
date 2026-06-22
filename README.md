@@ -67,8 +67,6 @@ Watch Synapse hand off a credential between devices without the secret ever leav
 
 <div align="center">
 
-<img src="assets/synapse-core.png" alt="Synapse Core — Identity, Trust, Vault, Audit, Security" width="920">
-
 ![Synapse demo](assets/demo.gif)
 
 ### ▶ [**Click here to watch with audio (45 seconds)**](https://github.com/jaisogani-ai/Synapse/raw/main/assets/synapse-demo.mp4)
@@ -135,7 +133,7 @@ Every inbound A2A message walks through **three sequential gates**: signature �
 
 <div align="center">
 
-<img src="assets/architecture.png" alt="Synapse architecture — agents, Synapse Core, security agents, execution environments" width="920">
+<img src="assets/synapse-core.png" alt="Synapse architecture — agents, Synapse Core, security agents, execution environments" width="920">
 
 </div>
 
