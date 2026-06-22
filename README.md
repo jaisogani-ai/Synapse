@@ -69,18 +69,16 @@ Watch Synapse hand off a credential between devices without the secret ever leav
 
 <div align="center">
 
-### ▶ [**Watch the 45-second demo with audio**](assets/synapse-demo.mp4?raw=1)
+[![▶ Watch demo with audio (45s, 1280×720, stereo)](assets/hero.png)](https://github.com/jaisogani-ai/Synapse/raw/main/assets/synapse-demo.mp4)
 
-<sub>1280×720 · H.264 video · AAC stereo audio · 19 MB</sub>
+### ▶ [**Click to watch the 45-second demo (with audio)**](https://github.com/jaisogani-ai/Synapse/raw/main/assets/synapse-demo.mp4)
 
-<video src="assets/synapse-demo.mp4" controls loop playsinline width="920">
-  Your browser does not support inline HTML5 video.
-  <strong><a href="assets/synapse-demo.mp4?raw=1">Click here to watch the demo with audio</a></strong>.
-</video>
-
-> 🔊 **About audio:** the animated GIF at the top of this README is **silent by format** — the GIF spec cannot carry audio. To hear the demo narration, click the link above (or the inline player) to open the .mp4 file, which has full stereo audio.
+<sub>1280×720 · H.264 video · AAC stereo audio · 19 MB · opens in your browser's video player</sub>
 
 </div>
+
+> 🔊 **Why is the looping preview at the top of this page silent?**
+> The animated preview is a `.gif` — the GIF spec **cannot carry audio**, ever. The full demo with stereo narration lives in [`assets/synapse-demo.mp4`](assets/synapse-demo.mp4). Click the poster above (or the link) to open it with sound. *(GitHub's README sanitizer does not auto-play `<video>` tags from repo files; inline auto-play with audio only works for files uploaded via GitHub's web UI. This is a GitHub limitation, not a Synapse one.)*
 
 ---
 
