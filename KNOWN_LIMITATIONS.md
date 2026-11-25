@@ -108,7 +108,7 @@ These are not gaps. They are non-goals. Listed so nobody is surprised.
 
 | # | Limitation | Impact | Mitigation today | Plan |
 |---|---|---|---|---|
-| H-1 | ~~No CI workflow in `.github/workflows/`~~ **PARTIALLY CLOSED** | ~~Tests must be run locally before push~~ | `.github/workflows/ci.yml` runs `pip install -e ".[dev]"` and `pytest` on every push and pull request. The Rust (`cargo test`) and Node (`npm test`) suites are not in CI yet — run them locally before every commit | Add `cargo test` and `npm test` jobs — v0.2 |
+| H-1 | ~~No CI workflow in `.github/workflows/`~~ **CLOSED** | ~~Tests must be run locally before push~~ | `.github/workflows/ci.yml` runs all three suites on every push and pull request: `pytest` (Python), `cargo test --workspace` (Rust daemon) and `npm --workspace @synapse/secret-vault-mcp test` (vault MCP). | Done. |
 | H-2 | No release automation | Tags published by hand | Maintainer cuts each release manually | Add release-please / similar — v0.2 |
 | H-3 | No SBOM | Downstream consumers can't audit dependency tree mechanically | `cargo tree`, `pip list`, `npm ls` work | Generate CycloneDX SBOM on release — v0.2 |
 
