@@ -26,6 +26,13 @@ dev = [
     "cryptography>=42",
 ]
 
+# The repo has a flat layout with several top-level directories (assets, daemon,
+# spinout, packages, ...). Disable setuptools auto-discovery so
+# `pip install -e ".[dev]"` installs only the dev dependencies; imports are
+# resolved by pytest via `pythonpath` below.
+[tool.setuptools]
+py-modules = []
+
 [tool.pytest.ini_options]
 pythonpath = [
     ".",
