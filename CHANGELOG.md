@@ -13,6 +13,32 @@ the leading `0.` line is alpha — minor bumps may carry breaking changes.
 
 Tracked in [`docs/ROADMAP.md`](docs/ROADMAP.md) under v0.2.
 
+## [0.1.1] — 2026-11-25
+
+Reliability and CI release. No protocol or wire-format changes.
+
+### Fixed
+
+- **Inbox SQLite concurrency (M-1)** — `InboxStore` now opens SQLite with WAL, `synchronous=NORMAL` and a 10 s busy timeout, mirroring the outbox, so concurrent writers no longer fail with `database is locked` (`packages/synapse-cli/synapse_cli/inbox_store.py`).
+- **Editable install** — `pip install -e ".[dev]"` failed on the flat repo layout because setuptools could not choose between `assets`, `daemon`, `spinout` and `packages`. Auto-discovery is now disabled in `pyproject.toml`.
+
+### Added
+
+- **GitHub Actions CI** (`.github/workflows/ci.yml`) running all three suites on every push and pull request: `pytest`, `cargo test --workspace`, and the vault MCP tests (`npm --workspace @synapse/secret-vault-mcp test`).
+- **Release workflow** (`.github/workflows/release.yml`) — manual; tags and publishes a GitHub release from the matching CHANGELOG section.
+- **16 new tests** — inbox store durability and concurrency (5), outbox lifecycle: offline → queue → retry → dead → requeue → delivered (5), blob transfer: 1 MiB, HTTP `Range` resume, SHA-256 and size verification, `serve_blob` 206/416/404 (6).
+
+### Changed
+
+- `KNOWN_LIMITATIONS.md`: I-1 (inbox WAL) and H-1 (no CI) marked closed.
+
+### Tests
+
+- `cargo test`: 39 / 39
+- `pytest`: 161 / 161
+- `npm test` (vault MCP): 10 / 10
+- **Total: 210 / 210** (194 in 0.1.0-alpha + 16 new)
+
 ## [0.1.0-alpha] — 2026-06-22
 
 First public release.
@@ -57,5 +83,6 @@ See [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md). Headlines: Rust `TrustStore`
 
 No known vulnerabilities at release. Vulnerability reporting policy: [`SECURITY.md`](SECURITY.md). Threat model: [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md).
 
-[Unreleased]: ../../compare/v0.1.0-alpha...HEAD
+[Unreleased]: ../../compare/v0.1.1...HEAD
+[0.1.1]: ../../compare/v0.1.0-alpha...v0.1.1
 [0.1.0-alpha]: ../../releases/tag/v0.1.0-alpha

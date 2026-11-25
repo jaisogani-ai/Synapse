@@ -1,6 +1,6 @@
 {
   "name": "synapse",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Identity, trust, reputation, and secure secret handoff for AI agents.",
   "license": "Apache-2.0",
