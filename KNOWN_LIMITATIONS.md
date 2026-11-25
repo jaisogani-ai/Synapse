@@ -67,7 +67,7 @@ These are not gaps. They are non-goals. Listed so nobody is surprised.
 
 | # | Limitation | Impact | Mitigation today | Plan |
 |---|---|---|---|---|
-| I-1 | Inbox SQLite is not WAL + busy-timeout (M-1) | Concurrent writers could see `database is locked` | One process per host is the v0.1 default — not a real issue | Enable WAL on inbox (outbox already has it) — v0.2 |
+| I-1 | ~~Inbox SQLite is not WAL + busy-timeout (M-1)~~ **CLOSED in v0.1.0-alpha** | ~~Concurrent writers could see `database is locked`~~ | Inbox now opens SQLite with WAL, `synchronous=NORMAL` and a 10 s busy timeout, mirroring the outbox. Covered by `packages/synapse-cli/tests/test_inbox_store.py` (including two threads × 50 concurrent inserts). | Done. |
 | I-2 | No per-sender rate limit (M-2) | A flood of valid messages from one sender fills the inbox | OS / reverse proxy limits | Token-bucket per sender — v0.2 |
 | O-1 | Outbox row's `endpoint_url` is fixed at enqueue time | Retargeting requires a fresh `send-task` | This is by design — the signed payload binds to a specific receiver | No change planned |
 | O-2 | Outbox worker re-issues a fresh JWT at delivery time | If you remove the sender's identity from the network, in-flight retries silently produce empty-token rejections | Keep identities until the outbox drains | No change planned — fail-closed is the right behaviour |
@@ -108,7 +108,7 @@ These are not gaps. They are non-goals. Listed so nobody is surprised.
 
 | # | Limitation | Impact | Mitigation today | Plan |
 |---|---|---|---|---|
-| H-1 | No CI workflow in `.github/workflows/` | Tests must be run locally before push | Run `cargo test && pytest && npm test` before every commit | Add GitHub Actions — v0.2 |
+| H-1 | ~~No CI workflow in `.github/workflows/`~~ **PARTIALLY CLOSED** | ~~Tests must be run locally before push~~ | `.github/workflows/ci.yml` runs `pip install -e ".[dev]"` and `pytest` on every push and pull request. The Rust (`cargo test`) and Node (`npm test`) suites are not in CI yet — run them locally before every commit | Add `cargo test` and `npm test` jobs — v0.2 |
 | H-2 | No release automation | Tags published by hand | Maintainer cuts each release manually | Add release-please / similar — v0.2 |
 | H-3 | No SBOM | Downstream consumers can't audit dependency tree mechanically | `cargo tree`, `pip list`, `npm ls` work | Generate CycloneDX SBOM on release — v0.2 |
 
