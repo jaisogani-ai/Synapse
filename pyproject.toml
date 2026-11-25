@@ -5,7 +5,7 @@
 
 [project]
 name = "synapse"
-version = "0.1.0"
+version = "0.1.1"
 description = "Identity, trust, reputation, and secure secret handoff for AI agents."
 authors = [{ name = "Jai Sogani" }]
 license = { text = "Apache-2.0" }

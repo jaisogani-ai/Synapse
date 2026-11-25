@@ -1,6 +1,6 @@
 {
   "name": "@synapse/secret-vault-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Synapse Secret Vault MCP (#4) — AES-256-GCM vault; agents request credential proxies, never raw keys.",
   "license": "Apache-2.0",
   "author": "Jai Sogani",
