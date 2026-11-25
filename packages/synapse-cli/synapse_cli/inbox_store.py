@@ -41,7 +41,10 @@ class InboxStore:
         self._init()
 
     def _conn(self) -> sqlite3.Connection:
-        return sqlite3.connect(self._path)
+        conn = sqlite3.connect(self._path, timeout=10.0)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA synchronous=NORMAL")
+        return conn
 
     def _init(self) -> None:
         with self._conn() as conn:
