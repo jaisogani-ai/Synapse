@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Jai Sogani. Licensed under the Apache License, Version 2.0.
 #
-# Synapse CI — runs the Python test suite on every push and pull request.
-# The commands below mirror tests/unit/README.md:
-#   pip install -e ".[dev]"
-#   pytest
-# (pytest's testpaths are configured in pyproject.toml:
-#  tests, packages/adapters, packages/synapse-cli/tests.)
+# Synapse CI — runs all three test suites on every push and pull request.
+#
+#   python : pip install -e ".[dev]" && pytest
+#            (pytest's testpaths are configured in pyproject.toml:
+#             tests, packages/adapters, packages/synapse-cli/tests.)
+#   rust   : cargo test                     (daemon workspace member)
+#   node   : npm --workspace @synapse/secret-vault-mcp test   (vault MCP)
 
 name: CI
 
@@ -17,6 +18,7 @@ on:
 
 jobs:
   test:
+    name: python
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,3 +30,30 @@ jobs:
         run: pip install -e ".[dev]"
       - name: Run tests
         run: pytest
+
+  rust:
+    name: rust
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+      - name: Run tests
+        run: cargo test --workspace
+
+  node:
+    name: node
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run vault MCP tests
+        run: npm --workspace @synapse/secret-vault-mcp test
